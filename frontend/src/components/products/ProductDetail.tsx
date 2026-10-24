@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import ProductGallery from '@/components/products/ProductGallery';
 import Button from '@/components/ui/Button';
 import { showSaveNotice } from '@/components/ui/SaveNotice';
@@ -22,11 +22,7 @@ export default function ProductDetail({ product }: { product: Product }) {
   const options = product.options.filter((option) => !(option.name === 'Title' && option.values[0] === 'Default Title'));
   const [selected, setSelected] = useState<string[]>(options.map((option) => option.values[0] || ''));
   const variant = useMemo(() => matchVariant(product, selected, options), [options, product, selected]);
-  const [photoId, setPhotoId] = useState<number | null>(variant?.image_id || product.images[0]?.id || null);
-
-  useEffect(() => {
-    if (variant?.image_id) setPhotoId(variant.image_id);
-  }, [variant?.id, variant?.image_id]);
+  const [photoId, setPhotoId] = useState<number | null>(product.images[0]?.id || null);
 
   const image = product.images.find((row) => row.id === photoId)?.src || product.images[0]?.src || '';
 
@@ -45,9 +41,12 @@ export default function ProductDetail({ product }: { product: Product }) {
                   key={value}
                   type="button"
                   className={`option-tag ${selected[index] === value ? 'option-tag-on' : ''}`}
-                  onClick={() =>
-                    setSelected((current) => current.map((item, i) => (i === index ? value : item)))
-                  }
+                  onClick={() => {
+                    const next = selected.map((item, i) => (i === index ? value : item));
+                    setSelected(next);
+                    const nextVariant = matchVariant(product, next, options);
+                    if (nextVariant?.image_id) setPhotoId(nextVariant.image_id);
+                  }}
                 >
                   {value}
                 </button>
