@@ -6,6 +6,8 @@ import Order from '../models/Order';
 import PageView from '../models/PageView';
 import TrafficSource from '../models/TrafficSource';
 import TrafficCountry from '../models/TrafficCountry';
+import TrafficKind from '../models/TrafficKind';
+import { VISITOR_KINDS, visitorKind } from './shared/visitorKind';
 import Product from '../models/Product';
 import ProductImage from '../models/ProductImage';
 import SiteSetting from '../models/SiteSetting';
@@ -63,8 +65,24 @@ export async function recordPageView(path: string, app = LUUX_APP): Promise<void
   await row.save();
 }
 
+async function recordKind(app: string, kind: string, day: string): Promise<void> {
+  const [row] = await TrafficKind.findOrCreate({
+    where: { app, kind, day },
+    defaults: { app, kind, day, count: 0 },
+  });
+  row.count += 1;
+  await row.save();
+}
+
+export async function kindTotals(app: string, sinceDay: string) {
+  const rows = await TrafficKind.findAll({ where: { app, day: { [Op.gte]: sinceDay } } });
+  const counts = new Map<string, number>();
+  for (const row of rows) counts.set(row.kind, (counts.get(row.kind) || 0) + row.count);
+  return VISITOR_KINDS.map((kind) => ({ kind, count: counts.get(kind) || 0 }));
+}
+
 export async function recordTraffic(
-  input: { path: string; source?: string; country?: string; seconds?: number },
+  input: { path: string; source?: string; country?: string; seconds?: number; userAgent?: string },
   app = LUUX_APP
 ): Promise<void> {
   const day = dayStamp(new Date());
@@ -80,7 +98,10 @@ export async function recordTraffic(
     await row.save();
     return;
   }
+  const kind = visitorKind(input.userAgent || '');
   await recordPageView(input.path, app);
+  await recordKind(app, kind, day);
+  if (kind !== 'Human') return;
   const source = normalizeSource(input.source);
   if (source) {
     const [row] = await TrafficSource.findOrCreate({
@@ -145,6 +166,7 @@ export async function luuxMarketingInput(): Promise<MarketingInput> {
       };
     }),
     page_views: views.map((row) => ({ day: row.day, path: row.path, count: row.count })),
+    visitor_kinds: await kindTotals(LUUX_APP, sinceDay),
     orders: [...ordersByDay.entries()].map(([day, row]) => ({
       day,
       total: row.total.toFixed(2),
@@ -165,6 +187,7 @@ export async function trafficSummary(app: string) {
   const views = await PageView.findAll({ where: { app, day: { [Op.gte]: sinceDay } } });
   const sources = await TrafficSource.findAll({ where: { app, day: { [Op.gte]: sinceDay } } });
   const countries = await TrafficCountry.findAll({ where: { app, day: { [Op.gte]: sinceDay } } });
+  const kinds = await kindTotals(app, sinceDay);
   const byPath = new Map<string, number>();
   const secondsByPath = new Map<string, number>();
   const staysByPath = new Map<string, number>();
@@ -212,6 +235,7 @@ export async function trafficSummary(app: string) {
   const days = new Set([...viewsByDay.keys(), ...paidByDay.keys()]);
   return {
     views: viewTotal,
+    kinds,
     average_stay_seconds: stayCount ? Math.round(staySeconds / stayCount) : 0,
     sources: [...sourceCounts.entries()]
       .map(([source, count]) => ({ source, count }))

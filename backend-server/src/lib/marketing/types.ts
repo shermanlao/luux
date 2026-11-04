@@ -20,6 +20,7 @@ export type MarketingInput = {
   app: string;
   catalog: CatalogItem[];
   page_views: Array<{ day: string; path: string; count: number }>;
+  visitor_kinds?: Array<{ kind: string; count: number }>;
   orders: Array<{ day: string; total: string; count: number }>;
   channels: MarketingChannel[];
 };

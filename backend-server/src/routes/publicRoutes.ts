@@ -247,11 +247,13 @@ router.post(
       return;
     }
     const seconds = Number(req.body?.seconds);
+    const forwardedAgent = String(req.get('x-luux-agent') || '').trim();
     await recordTraffic({
       path,
       source: req.body?.source,
       country: countryFromIp(visitorIp(req)),
       seconds: Number.isFinite(seconds) ? seconds : undefined,
+      userAgent: forwardedAgent || req.get('user-agent') || '',
     });
     res.json({ ok: true });
   })

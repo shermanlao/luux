@@ -1,0 +1,200 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import AdminTable from '@/components/ui/AdminTable';
+import AlertBanner from '@/components/ui/AlertBanner';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import { formatHkd } from '@shared/slugify';
+import type { Order } from '@/lib/types';
+
+function formatWhen(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-HK', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function addressLines(order: Order) {
+  const city = [order.shipping_city, order.shipping_region, order.shipping_postal].filter(Boolean).join(' ');
+  return [order.shipping_name, order.shipping_phone, order.shipping_line1, order.shipping_line2, city, order.shipping_country].filter(
+    (line) => line && line.trim()
+  );
+}
+
+function lineTotal(quantity: number, unitPrice: string) {
+  const amount = quantity * Number(unitPrice);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+export default function AdminOrderPage() {
+  const params = useParams<{ id: string }>();
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [missing, setMissing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/admin/orders/${params.id}`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok || !data.order) {
+          setMissing(true);
+          return;
+        }
+        setOrder(data.order);
+      })
+      .catch(() => {
+        if (!cancelled) setMissing(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
+
+  async function update(action: 'fulfill' | 'cancel') {
+    if (!order || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/admin/orders/${order.id}/${action}`, { method: 'POST' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.order) {
+        setError(data.error || 'Could not update this order.');
+        return;
+      }
+      setOrder(data.order);
+    } catch {
+      setError('Could not update this order.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="mx-auto max-w-6xl px-4 py-10 text-gray-500">Loading...</div>;
+  }
+
+  if (missing || !order) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-10">
+        <AdminPageHeader title="Order" backHref="/admin/orders" backLabel="Back to Orders" />
+        <p className="text-gray-500">Order not found.</p>
+      </div>
+    );
+  }
+
+  const placed = formatWhen(order.createdAt);
+  const address = addressLines(order);
+  const actions = (
+    <>
+      {order.status === 'paid' ? (
+        <Button helpKey="admin.order.fulfill" variant="secondary" disabled={busy} onClick={() => update('fulfill')}>
+          Mark fulfilled
+        </Button>
+      ) : null}
+      {order.status === 'pending' || order.status === 'paid' ? (
+        <Button helpKey="admin.order.cancel" variant="danger" disabled={busy} onClick={() => update('cancel')}>
+          Cancel order
+        </Button>
+      ) : null}
+    </>
+  );
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-10">
+      <AdminPageHeader title={order.number} backHref="/admin/orders" backLabel="Back to Orders" actions={actions} />
+      {error ? <AlertBanner className="mb-6">{error}</AlertBanner> : null}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <AdminTable columns={['Item', 'SKU', 'Qty', 'Price', 'Total']} empty={!order.items.length}>
+            {order.items.map((item) => (
+              <tr key={item.id}>
+                <td className="px-6 py-3">
+                  <div>{item.title}</div>
+                  {item.variant_title && item.variant_title !== 'Default Title' ? (
+                    <div className="text-sm text-gray-500">{item.variant_title}</div>
+                  ) : null}
+                </td>
+                <td className="px-6 py-3">{item.sku}</td>
+                <td className="px-6 py-3">{item.quantity}</td>
+                <td className="px-6 py-3">{formatHkd(item.unit_price)}</td>
+                <td className="px-6 py-3">{formatHkd(lineTotal(item.quantity, item.unit_price))}</td>
+              </tr>
+            ))}
+          </AdminTable>
+        </div>
+        <div className="space-y-6">
+          <Card>
+            <h2 className="mb-4 text-lg font-semibold">Order</h2>
+            <dl className="space-y-3 text-sm">
+              <div>
+                <dt className="text-gray-500">Status</dt>
+                <dd>{order.status}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Email</dt>
+                <dd>{order.email}</dd>
+              </div>
+              {placed ? (
+                <div>
+                  <dt className="text-gray-500">Placed</dt>
+                  <dd>{placed}</dd>
+                </div>
+              ) : null}
+              {order.notes?.trim() ? (
+                <div>
+                  <dt className="text-gray-500">Notes</dt>
+                  <dd className="whitespace-pre-wrap">{order.notes}</dd>
+                </div>
+              ) : null}
+              {order.stripe_payment_intent ? (
+                <div>
+                  <dt className="text-gray-500">Stripe payment</dt>
+                  <dd className="break-all">{order.stripe_payment_intent}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </Card>
+          <Card>
+            <h2 className="mb-4 text-lg font-semibold">Shipping</h2>
+            {order.shipping_rate_name ? <p className="mb-3 text-sm text-gray-500">{order.shipping_rate_name}</p> : null}
+            {address.length ? (
+              <address className="text-sm not-italic">
+                {address.map((line, index) => (
+                  <div key={`${index}-${line}`}>{line}</div>
+                ))}
+              </address>
+            ) : (
+              <p className="text-sm text-gray-500">No shipping address.</p>
+            )}
+          </Card>
+          <Card>
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-500">Subtotal</dt>
+                <dd>{formatHkd(order.subtotal)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-500">Shipping</dt>
+                <dd>{formatHkd(order.shipping_amount)}</dd>
+              </div>
+              <div className="flex justify-between gap-4 border-t border-gray-200 pt-2 text-base font-semibold">
+                <dt>Total</dt>
+                <dd>{formatHkd(order.total)}</dd>
+              </div>
+            </dl>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

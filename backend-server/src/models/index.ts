@@ -2,6 +2,7 @@ import sequelize from '../database';
 import {
   ensureCurrencies,
   ensureCustomerOAuthColumns,
+  ensureProductImageOptionTags,
   ensureProductVendorColumns,
   ensureTrafficColumns,
   ensureDefaultAdmin,
@@ -32,6 +33,7 @@ import Variant from './Variant';
 import PageView from './PageView';
 import TrafficSource from './TrafficSource';
 import TrafficCountry from './TrafficCountry';
+import TrafficKind from './TrafficKind';
 import MarketingCampaign from './MarketingCampaign';
 
 Product.hasMany(ProductImage, { foreignKey: 'product_id', as: 'images', onDelete: 'CASCADE' });
@@ -65,6 +67,7 @@ async function syncDatabase() {
   try {
     await sequelize.sync();
     await ensureCustomerOAuthColumns();
+    await ensureProductImageOptionTags();
     await ensureProductVendorColumns();
     await ensureTrafficColumns();
     await upsertHelpTips();
@@ -104,5 +107,6 @@ export {
   PageView,
   TrafficSource,
   TrafficCountry,
+  TrafficKind,
   MarketingCampaign,
 };
