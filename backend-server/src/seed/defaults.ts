@@ -15,6 +15,7 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'nav.menu', title: 'Menu', body: 'Open the site menu.' },
   { helpKey: 'nav.home', title: 'Home', body: 'Open the LUUX homepage.' },
   { helpKey: 'nav.shop', title: 'Collections', body: 'Browse lighting collections.' },
+  { helpKey: 'nav.shop_all', title: 'All collections', body: 'Open every collection.' },
   { helpKey: 'nav.about', title: 'About us', body: 'Read about LUUX.' },
   { helpKey: 'nav.contact', title: 'Contact us', body: 'Send a question or find our email and phone.' },
   { helpKey: 'nav.search', title: 'Search', body: 'Search products by name.' },
