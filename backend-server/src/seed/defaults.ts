@@ -106,12 +106,21 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.settings.mail_api_token', title: 'Agentic Mail API token', body: 'Paste the token from Hostinger, Agentic mail, API access. Leave blank to keep the saved token.' },
   { helpKey: 'admin.settings.mail_api_check', title: 'Check API', body: 'Confirm this token can reach the shop mailbox.' },
   { helpKey: 'admin.messages.sync', title: 'Check mailbox', body: 'Read recent mail through the Agentic Mail API, or through IMAP when no API token is saved.' },
-  { helpKey: 'admin.messages.filter_all', title: 'All messages', body: 'Show contact-form notes and email together.' },
+  { helpKey: 'admin.messages.filter_all', title: 'All messages', body: 'Show contact-form notes, email, and live chat together.' },
   { helpKey: 'admin.messages.filter_contact', title: 'Contact form', body: 'Show notes sent from the contact page.' },
   { helpKey: 'admin.messages.filter_email', title: 'Email', body: 'Show mail read from the inbox.' },
   { helpKey: 'admin.messages.open', title: 'Open message', body: 'Read this message and its replies.' },
+  { helpKey: 'admin.messages.icon_email', title: 'Email', body: 'This row is an email. When uses the date written on the message.' },
+  { helpKey: 'admin.messages.icon_contact', title: 'Contact form', body: 'This row is a note sent from the contact page.' },
+  { helpKey: 'admin.messages.icon_chat', title: 'Chat', body: 'This row is a live chat with a shop visitor.' },
+  { helpKey: 'admin.messages.filter_chat', title: 'Chat', body: 'Show live chats from the shop.' },
+  { helpKey: 'admin.messages.draft', title: 'Draft reply', body: 'Ask the AI to fill a reply. Nothing is sent until you choose Send reply.' },
+  { helpKey: 'admin.settings.mail_webhook', title: 'Mail webhook secret', body: 'Secret from Hostinger for new-mail notifications. Leave blank to keep the saved secret.' },
+  { helpKey: 'shop.chat.open', title: 'Chat', body: 'Ask the shop a question.' },
+  { helpKey: 'shop.chat.send', title: 'Send', body: 'Send this message to the shop.' },
+  { helpKey: 'shop.chat.handoff', title: 'Ask a person', body: 'Stop automatic replies and leave this chat for the shop.' },
   { helpKey: 'admin.messages.close', title: 'Close', body: 'Close this message.' },
-  { helpKey: 'admin.messages.reply', title: 'Send reply', body: 'Email this reply to the sender.' },
+  { helpKey: 'admin.messages.reply', title: 'Send reply', body: 'Send this reply. Mail goes out when the message has an address. A chat with no address stays in the thread.' },
   { helpKey: 'admin.messages.delete', title: 'Delete message', body: 'Remove this message and its replies.' },
   { helpKey: 'admin.integrations.save', title: 'Save integrations', body: 'Save the AI API, Stripe payment details, and social posting tokens.' },
   { helpKey: 'admin.integrations.marketing_key', title: 'Marketing key', body: 'Create a key other apps can send when they ask this shop to draft a campaign. The full key is shown once.' },
@@ -311,6 +320,7 @@ const MAIL_COLUMNS: Array<{ name: string; type: typeof DataTypes.STRING | typeof
   { name: 'mail_imap_user', type: DataTypes.STRING, defaultValue: '' },
   { name: 'mail_imap_password', type: DataTypes.TEXT, defaultValue: '' },
   { name: 'mail_api_token', type: DataTypes.TEXT, defaultValue: '' },
+  { name: 'mail_webhook_secret', type: DataTypes.TEXT, defaultValue: '' },
 ];
 
 async function ensureMailboxMessageColumns(): Promise<void> {
@@ -325,6 +335,20 @@ async function ensureMailboxMessageColumns(): Promise<void> {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: '',
+    });
+  }
+  if (!table.chat_token) {
+    await queryInterface.addColumn('mailbox_messages', 'chat_token', {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: '',
+    });
+  }
+  if (!table.handed_off) {
+    await queryInterface.addColumn('mailbox_messages', 'handed_off', {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     });
   }
 }

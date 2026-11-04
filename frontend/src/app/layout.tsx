@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import ChatWidget from '@/components/shop/ChatWidget';
 import CookieBar from '@/components/layout/CookieBar';
 import TrafficBeacon from '@/components/layout/TrafficBeacon';
 import SaveNotice from '@/components/ui/SaveNotice';
@@ -83,6 +84,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <main className="min-h-[70vh] min-w-0 overflow-x-clip">{children}</main>
             <Footer site={payload.site} />
             <CookieBar />
+            <ChatWidget />
             <TrafficBeacon />
             <SaveNotice />
           </CartProvider>

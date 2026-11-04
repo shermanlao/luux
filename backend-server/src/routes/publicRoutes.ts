@@ -1,14 +1,19 @@
+import crypto from 'crypto';
 import { Router } from 'express';
 import { Op } from 'sequelize';
 import { asyncHandler, notFound } from '../lib/asyncHandler';
 import { hashClientIp } from '../lib/cookieConsent';
-import { readCustomerSession } from '../lib/cookies';
+import { requestAiReply } from '../lib/aiText';
+import { readCustomerSession, setCookie } from '../lib/cookies';
+import { canReadMail, syncInbox } from '../lib/mail';
+import { shopFacts, simpleShopAnswer } from '../lib/shopFacts';
 import { rateLimit } from '../lib/rateLimit';
 import { PRODUCT_INCLUDE, serializeCollection, serializePage, serializeProduct, serializeShipping, serializeSite } from '../lib/serialize';
 import CookieConsent from '../models/CookieConsent';
 import Collection from '../models/Collection';
 import { saveContactMessage } from '../lib/mail';
 import HelpTip from '../models/HelpTip';
+import MailboxMessage from '../models/MailboxMessage';
 import NewsletterSubscriber from '../models/NewsletterSubscriber';
 import Page from '../models/Page';
 import Product from '../models/Product';
@@ -286,6 +291,180 @@ router.post(
     }
     await saveContactMessage({ name, email, message });
     res.json({ ok: true });
+  })
+);
+
+const CHAT_COOKIE = 'luux_chat';
+const HANDOFF_TEXT = 'Someone from LUUX will reply here.';
+
+function chatLines(root: MailboxMessage, children: MailboxMessage[]) {
+  return [root, ...children].map((row) => ({
+    id: row.id,
+    direction: row.direction,
+    body: row.body,
+    createdAt: row.createdAt,
+  }));
+}
+
+async function chatThread(token: string) {
+  if (!token) return null;
+  return MailboxMessage.findOne({ where: { chat_token: token, source: 'chat', parent_id: null } });
+}
+
+async function chatChildren(root: MailboxMessage) {
+  return MailboxMessage.findAll({ where: { parent_id: root.id }, order: [['id', 'ASC']] });
+}
+
+function rememberEmail(root: MailboxMessage, text: string) {
+  if (root.email.includes('@')) return;
+  const found = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  if (found) root.email = found[0].toLowerCase().slice(0, 200);
+}
+
+async function passToStaff(root: MailboxMessage) {
+  root.handed_off = true;
+  root.read = false;
+  await root.save();
+  return HANDOFF_TEXT;
+}
+
+async function receptionistReply(site: SiteSetting, root: MailboxMessage, text: string): Promise<string> {
+  if (root.handed_off) return HANDOFF_TEXT;
+  const visitorTurns = 1 + (await MailboxMessage.count({ where: { parent_id: root.id, direction: 'in' } }));
+  if (visitorTurns > 24) return passToStaff(root);
+  const simple = await simpleShopAnswer(site, text);
+  if (simple) return simple;
+  if (!site.ai_api_key) return passToStaff(root);
+  try {
+    const facts = await shopFacts(site, text);
+    const result = await requestAiReply(
+      { baseUrl: site.ai_base_url, apiKey: site.ai_api_key, model: site.ai_model },
+      facts,
+      text
+    );
+    if (!result.handled || !result.answer) return passToStaff(root);
+    return result.answer;
+  } catch (error) {
+    console.error('Chat AI:', error instanceof Error ? error.message : error);
+    return passToStaff(root);
+  }
+}
+
+router.get(
+  '/chat',
+  asyncHandler(async (req, res) => {
+    const root = await chatThread(String(req.cookies?.[CHAT_COOKIE] || ''));
+    if (!root) {
+      res.json({ messages: [], handedOff: false });
+      return;
+    }
+    const children = await chatChildren(root);
+    res.set('Cache-Control', 'no-store');
+    res.json({ messages: chatLines(root, children), handedOff: Boolean(root.handed_off) });
+  })
+);
+
+router.post(
+  '/chat',
+  rateLimit({ windowMs: 10 * 60 * 1000, max: 20, name: 'chat' }),
+  asyncHandler(async (req, res) => {
+    const site = await SiteSetting.findByPk(1);
+    if (!site) return notFound(res, 'Shop');
+    const text = String(req.body?.text || '').trim().slice(0, 1000);
+    const handoff = Boolean(req.body?.handoff);
+    let token = String(req.cookies?.[CHAT_COOKIE] || '');
+    let root = await chatThread(token);
+    if (!root) {
+      if (!text && !handoff) {
+        res.status(400).json({ error: 'Write a message first.' });
+        return;
+      }
+      token = crypto.randomBytes(24).toString('hex');
+      setCookie(res, CHAT_COOKIE, token);
+      root = await MailboxMessage.create({
+        source: 'chat',
+        direction: 'in',
+        name: 'Visitor',
+        email: '',
+        subject: 'Shop chat',
+        body: text || 'Asked to speak with someone from the shop.',
+        message_id: '',
+        inquiry_id: null,
+        parent_id: null,
+        read: false,
+        chat_token: token,
+        handed_off: false,
+      });
+      rememberEmail(root, text);
+    } else if (text) {
+      await MailboxMessage.create({
+        source: 'chat',
+        direction: 'in',
+        name: 'Visitor',
+        email: '',
+        subject: 'Shop chat',
+        body: text,
+        message_id: '',
+        inquiry_id: null,
+        parent_id: root.id,
+        read: true,
+        chat_token: '',
+      });
+      rememberEmail(root, text);
+      root.read = false;
+    } else if (!handoff) {
+      res.status(400).json({ error: 'Write a message first.' });
+      return;
+    }
+    const alreadyHandedOff = Boolean(root.handed_off);
+    if (handoff) root.handed_off = true;
+    await root.save();
+    if (alreadyHandedOff && !handoff) {
+      const waiting = await chatChildren(root);
+      res.json({ messages: chatLines(root, waiting), handedOff: true, reply: '' });
+      return;
+    }
+    const reply = handoff ? await passToStaff(root) : await receptionistReply(site, root, text);
+    await MailboxMessage.create({
+      source: 'chat',
+      direction: 'out',
+      name: 'LUUX',
+      email: '',
+      subject: 'Shop chat',
+      body: reply,
+      message_id: '',
+      inquiry_id: null,
+      parent_id: root.id,
+      read: true,
+      chat_token: '',
+    });
+    const children = await chatChildren(root);
+    res.json({ messages: chatLines(root, children), handedOff: Boolean(root.handed_off), reply });
+  })
+);
+
+router.post(
+  '/mail/webhook',
+  asyncHandler(async (req, res) => {
+    const site = await SiteSetting.findByPk(1);
+    const saved = String(site?.mail_webhook_secret || '').trim();
+    if (!site || !saved) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+    const presented = String(req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+    const left = Buffer.from(presented);
+    const right = Buffer.from(saved);
+    if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    if (!canReadMail(site)) {
+      res.status(400).json({ error: 'Incoming mail is not set up. Paste the Agentic Mail API token on Settings.' });
+      return;
+    }
+    const imported = await syncInbox(site);
+    res.json({ imported });
   })
 );
 

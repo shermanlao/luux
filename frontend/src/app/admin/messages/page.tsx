@@ -21,12 +21,13 @@ type MessageRow = {
   updatedAt?: string;
 };
 
-type SourceFilter = 'all' | 'contact' | 'email';
+type SourceFilter = 'all' | 'contact' | 'email' | 'chat';
 
 const FILTERS: Array<{ id: SourceFilter; label: string; helpKey: string }> = [
   { id: 'all', label: 'All', helpKey: 'admin.messages.filter_all' },
   { id: 'contact', label: 'Contact form', helpKey: 'admin.messages.filter_contact' },
   { id: 'email', label: 'Email', helpKey: 'admin.messages.filter_email' },
+  { id: 'chat', label: 'Chat', helpKey: 'admin.messages.filter_chat' },
 ];
 
 function formatWhen(value?: string) {
@@ -37,7 +38,33 @@ function formatWhen(value?: string) {
 }
 
 function sourceLabel(source: string) {
-  return source === 'email' ? 'Email' : 'Contact form';
+  if (source === 'email') return 'Email';
+  if (source === 'chat') return 'Chat';
+  return 'Contact form';
+}
+
+function SourceIcon({ source }: { source: string }) {
+  if (source === 'email') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+        <rect x="3.5" y="5.5" width="17" height="13" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M4.5 7.5 12 13l7.5-5.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+  if (source === 'chat') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M8.5 12h7M8.5 9.5h4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+      <path d="M5 6.5h14v8.5H9.5L5 18.5V6.5z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 export default function AdminMessagesPage() {
@@ -69,6 +96,13 @@ export default function AdminMessagesPage() {
       .catch(() => showSaveNotice('Could not load messages', 'error'))
       .finally(() => setLoading(false));
   }, [load]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void load(filter);
+    }, 20000);
+    return () => window.clearInterval(timer);
+  }, [filter, load]);
 
   async function choose(next: SourceFilter) {
     setFilter(next);
@@ -197,14 +231,25 @@ export default function AdminMessagesPage() {
           </Button>
         ))}
       </div>
-      <AdminTable columns={['When', 'From', 'Source', 'Message']} loading={loading} empty={!loading && !messages.length}>
+      <AdminTable columns={[{ id: 'kind', label: '' }, 'When', 'From', 'Source', 'Message']} loading={loading} empty={!loading && !messages.length}>
         {messages.map((row) => {
           const open = () => void openMessage(row);
-          const when = formatWhen(row.updatedAt || row.createdAt);
+          const when = formatWhen(row.createdAt);
           const from = row.name || row.email;
           const cells = [when, from, sourceLabel(row.source)];
+          const iconKey = row.source === 'email' ? 'admin.messages.icon_email' : row.source === 'chat' ? 'admin.messages.icon_chat' : 'admin.messages.icon_contact';
           return (
             <tr key={row.id} className="cursor-pointer hover:bg-gray-50">
+              <td className="w-12 p-0">
+                <HelpButton
+                  helpKey={iconKey}
+                  aria-label={sourceLabel(row.source)}
+                  className="flex w-full cursor-pointer items-center justify-center px-3 py-3 text-gray-700"
+                  onClick={open}
+                >
+                  <SourceIcon source={row.source} />
+                </HelpButton>
+              </td>
               {cells.map((value, index) => (
                 <td key={index} className="p-0">
                   <HelpButton

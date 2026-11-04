@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { Op } from 'sequelize';
 import { asyncHandler, notFound } from '../lib/asyncHandler';
 import { requireAdmin } from '../lib/authMiddleware';
+import { requestAiReply } from '../lib/aiText';
 import { canReadMail, canSendMail, importContactInquiries, sendSiteMail, syncInbox } from '../lib/mail';
+import { shopFacts } from '../lib/shopFacts';
 import { messagePreview, replySubject } from '../lib/shared/mail-text';
 import ContactInquiry from '../models/ContactInquiry';
 import MailboxMessage from '../models/MailboxMessage';
@@ -50,9 +52,9 @@ router.get(
     await importContactInquiries();
     const source = String(req.query.source || '');
     const where: { direction: string; parent_id: null; source?: string } = { direction: 'in', parent_id: null };
-    if (source === 'contact' || source === 'email') where.source = source;
+    if (source === 'contact' || source === 'email' || source === 'chat') where.source = source;
     const [rows, site] = await Promise.all([
-      MailboxMessage.findAll({ where, order: [['updatedAt', 'DESC'], ['id', 'DESC']] }),
+      MailboxMessage.findAll({ where, order: [['createdAt', 'DESC'], ['id', 'DESC']] }),
       SiteSetting.findByPk(1),
     ]);
     res.set('Cache-Control', 'no-store');
@@ -89,6 +91,40 @@ router.get(
 );
 
 router.post(
+  '/messages/:id/draft',
+  asyncHandler(async (req, res) => {
+    const message = await MailboxMessage.findByPk(req.params.id);
+    if (!message || message.direction !== 'in' || message.parent_id) return notFound(res, 'Message');
+    const site = await SiteSetting.findByPk(1);
+    if (!site?.ai_api_key) {
+      res.status(400).json({ error: 'Add the AI key on Integrations before drafting a reply.' });
+      return;
+    }
+    const thread = await MailboxMessage.findAll({ where: { parent_id: message.id }, order: [['id', 'ASC']] });
+    const history = [message, ...thread]
+      .map((row) => `${row.direction === 'out' ? 'Shop' : row.name || 'Visitor'}: ${row.body}`)
+      .join('\n\n')
+      .slice(0, 8000);
+    try {
+      const facts = await shopFacts(site, `${message.subject}\n${message.body}`);
+      const result = await requestAiReply(
+        { baseUrl: site.ai_base_url, apiKey: site.ai_api_key, model: site.ai_model },
+        facts,
+        `Draft a reply to this thread.\n\n${history}`
+      );
+      if (!result.answer) {
+        res.status(400).json({ error: 'The AI could not draft a reply.' });
+        return;
+      }
+      res.json({ reply: result.answer });
+    } catch (error) {
+      console.error('Draft reply:', error instanceof Error ? error.message : error);
+      res.status(400).json({ error: 'The AI could not draft a reply.' });
+    }
+  })
+);
+
+router.post(
   '/messages/:id/reply',
   asyncHandler(async (req, res) => {
     const message = await MailboxMessage.findByPk(req.params.id);
@@ -98,12 +134,41 @@ router.post(
       res.status(400).json({ error: 'Write a reply first.' });
       return;
     }
+    const site = await SiteSetting.findByPk(1);
+    if (!site) return notFound(res, 'Settings');
+    if (message.source === 'chat') {
+      let messageId = '';
+      if (message.email.includes('@') && canSendMail(site)) {
+        messageId = await sendSiteMail(site, {
+          to: message.email,
+          subject: replySubject(message.subject),
+          text,
+          inReplyTo: message.message_id || undefined,
+          replyUid: message.remote_uid,
+          replyFolder: message.remote_folder || undefined,
+        });
+      }
+      await MailboxMessage.create({
+        source: 'chat',
+        direction: 'out',
+        name: (site.mail_from_name || site.company_name || 'LUUX').trim(),
+        email: (site.mail_from_email || site.contact_email || '').trim(),
+        subject: replySubject(message.subject),
+        body: text,
+        message_id: messageId,
+        inquiry_id: null,
+        parent_id: message.id,
+        read: true,
+      });
+      message.read = true;
+      await message.save();
+      res.json({ message: await loadDetail(message) });
+      return;
+    }
     if (!message.email.includes('@')) {
       res.status(400).json({ error: 'This message has no email address to reply to.' });
       return;
     }
-    const site = await SiteSetting.findByPk(1);
-    if (!site) return notFound(res, 'Settings');
     if (!canSendMail(site)) {
       res.status(400).json({ error: 'Email is not set up. Paste the Agentic Mail API token on Settings.' });
       return;

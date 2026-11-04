@@ -57,6 +57,7 @@ class SiteSetting extends Model {
   declare mail_imap_user: string;
   declare mail_imap_password: string;
   declare mail_api_token: string;
+  declare mail_webhook_secret: string;
 }
 
 SiteSetting.init(
@@ -133,6 +134,7 @@ SiteSetting.init(
     mail_imap_user: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     mail_imap_password: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     mail_api_token: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    mail_webhook_secret: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
   },
   { sequelize, modelName: 'SiteSetting', tableName: 'site_settings' }
 );

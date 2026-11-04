@@ -362,7 +362,7 @@ async function storeInboxMessages(site: SiteSetting, sources: Buffer[]): Promise
       references: referenceIds(parsed),
       remoteUid: null,
       remoteFolder: '',
-      createdAt: null,
+      createdAt: parsed.date instanceof Date && !Number.isNaN(parsed.date.getTime()) ? parsed.date : null,
     });
   }
   return storeIncoming(site, messages);

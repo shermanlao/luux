@@ -14,6 +14,8 @@ class MailboxMessage extends Model {
   declare parent_id: number | null;
   declare remote_uid: number | null;
   declare remote_folder: string;
+  declare chat_token: string;
+  declare handed_off: boolean;
   declare read: boolean;
   declare createdAt: Date;
   declare updatedAt: Date;
@@ -33,6 +35,8 @@ MailboxMessage.init(
     parent_id: { type: DataTypes.INTEGER, allowNull: true },
     remote_uid: { type: DataTypes.INTEGER, allowNull: true },
     remote_folder: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    chat_token: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    handed_off: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     read: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   { sequelize, modelName: 'MailboxMessage', tableName: 'mailbox_messages' }

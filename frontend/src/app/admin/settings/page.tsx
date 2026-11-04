@@ -28,6 +28,9 @@ type MailSettings = {
   mail_api_token: string;
   mail_api_token_set: boolean;
   mail_api_token_hint: string;
+  mail_webhook_secret: string;
+  mail_webhook_secret_set: boolean;
+  mail_webhook_secret_hint: string;
 };
 
 const EMPTY_MAIL: MailSettings = {
@@ -50,6 +53,9 @@ const EMPTY_MAIL: MailSettings = {
   mail_api_token: '',
   mail_api_token_set: false,
   mail_api_token_hint: '',
+  mail_webhook_secret: '',
+  mail_webhook_secret_set: false,
+  mail_webhook_secret_hint: '',
 };
 
 function applyMail(mail?: Partial<MailSettings>): MailSettings {
@@ -63,6 +69,7 @@ function applyMail(mail?: Partial<MailSettings>): MailSettings {
     mail_smtp_password: '',
     mail_imap_password: '',
     mail_api_token: '',
+    mail_webhook_secret: '',
   };
 }
 
@@ -107,6 +114,7 @@ export default function AdminSettingsPage() {
         mail_imap_user: mail.mail_imap_user,
         mail_imap_password: mail.mail_imap_password,
         mail_api_token: mail.mail_api_token,
+        mail_webhook_secret: mail.mail_webhook_secret,
       }),
     });
     const data = await response.json().catch(() => ({}));
@@ -197,6 +205,18 @@ export default function AdminSettingsPage() {
           {checkingApi ? 'Checking…' : 'Check API'}
         </Button>
         {apiStatus ? <p className="text-sm text-gray-600">{apiStatus}</p> : null}
+        <TextInput
+          label="Mail webhook secret"
+          helpKey="admin.settings.mail_webhook"
+          type="password"
+          autoComplete="new-password"
+          hint={passwordHint(mail.mail_webhook_secret_set, mail.mail_webhook_secret_hint).replace('password', 'secret').replace('token', 'secret')}
+          value={mail.mail_webhook_secret}
+          onChange={(e) => setMailField('mail_webhook_secret', e.target.value)}
+        />
+        <p className="text-sm text-gray-600">
+          In Hostinger, add a webhook for new mail aimed at https://luuxmart.com/api/mail/webhook and paste the secret here. A blank secret keeps the saved one.
+        </p>
         <p className="text-sm text-gray-600">
           Server mail is optional. Leave these fields empty while the API token above is saved. A blank password keeps the saved one.
         </p>

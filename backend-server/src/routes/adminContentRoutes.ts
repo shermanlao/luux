@@ -139,6 +139,7 @@ function serializeMail(site: SiteSetting) {
   const smtp = secretHint(site.mail_smtp_password || '');
   const imap = secretHint(site.mail_imap_password || '');
   const api = secretHint(site.mail_api_token || '');
+  const webhook = secretHint(site.mail_webhook_secret || '');
   return {
     mail_smtp_host: site.mail_smtp_host || '',
     mail_smtp_port: site.mail_smtp_port || '587',
@@ -156,6 +157,8 @@ function serializeMail(site: SiteSetting) {
     mail_imap_password_hint: imap.hint,
     mail_api_token_set: api.set,
     mail_api_token_hint: api.hint,
+    mail_webhook_secret_set: webhook.set,
+    mail_webhook_secret_hint: webhook.hint,
   };
 }
 
@@ -195,6 +198,10 @@ function applyMailSettings(site: SiteSetting, body: Record<string, unknown>): st
   if (body.mail_api_token != null) {
     const token = String(body.mail_api_token).trim().replace(/^Bearer\s+/i, '').slice(0, 2000);
     if (token) site.mail_api_token = token;
+  }
+  if (body.mail_webhook_secret != null) {
+    const secret = String(body.mail_webhook_secret).trim().replace(/^Bearer\s+/i, '').slice(0, 2000);
+    if (secret) site.mail_webhook_secret = secret;
   }
   return null;
 }

@@ -34,7 +34,9 @@ function formatWhen(value?: string) {
 }
 
 function sourceLabel(source: string) {
-  return source === 'email' ? 'Email' : 'Contact form';
+  if (source === 'email') return 'Email';
+  if (source === 'chat') return 'Chat';
+  return 'Contact form';
 }
 
 export default function MessageDialog({
@@ -60,9 +62,12 @@ export default function MessageDialog({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const [reply, setReply] = useState('');
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState('');
 
   useEffect(() => {
     setReply('');
+    setDraftError('');
   }, [message?.id]);
 
   useEffect(() => {
@@ -84,6 +89,25 @@ export default function MessageDialog({
 
   const who = message.name ? `${message.name} · ${message.email}` : message.email;
   const when = formatWhen(message.createdAt);
+
+  async function draftReply() {
+    if (!message || busy || drafting) return;
+    setDrafting(true);
+    setDraftError('');
+    try {
+      const response = await fetch(`/api/admin/messages/${message.id}/draft`, { method: 'POST' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.reply) {
+        setDraftError(data.error || 'The AI could not draft a reply.');
+        return;
+      }
+      setReply(data.reply);
+    } catch {
+      setDraftError('The AI could not draft a reply.');
+    } finally {
+      setDrafting(false);
+    }
+  }
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -122,7 +146,7 @@ export default function MessageDialog({
             </Button>
           </div>
         </div>
-        {error ? <AlertBanner className="mb-4">{error}</AlertBanner> : null}
+        {error || draftError ? <AlertBanner className="mb-4">{error || draftError}</AlertBanner> : null}
         <div className="whitespace-pre-wrap break-words text-sm">{message.body}</div>
         {message.thread.map((item) => (
           <div key={item.id} className="mt-4 border-t border-gray-200 pt-4">
@@ -142,9 +166,14 @@ export default function MessageDialog({
             value={reply}
             onChange={(event) => setReply(event.target.value)}
           />
-          <Button helpKey="admin.messages.reply" type="submit" disabled={busy || !reply.trim()}>
-            {replying ? 'Sending…' : 'Send reply'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button helpKey="admin.messages.draft" type="button" variant="secondary" disabled={busy || drafting} onClick={() => void draftReply()}>
+              {drafting ? 'Drafting…' : 'Draft reply'}
+            </Button>
+            <Button helpKey="admin.messages.reply" type="submit" disabled={busy || drafting || !reply.trim()}>
+              {replying ? 'Sending…' : message.source === 'chat' && !message.email.includes('@') ? 'Send in chat' : 'Send reply'}
+            </Button>
+          </div>
         </form>
       </div>
     </div>,
