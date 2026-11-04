@@ -173,7 +173,7 @@ router.get(
   '/shipping',
   asyncHandler(async (_req, res) => {
     const rates = await ShippingRate.findAll({ order: [['sort_order', 'ASC']] });
-    res.json({ rates: rates.map(serializeShipping) });
+    res.json({ rates: rates.filter((rate) => rate.code !== 'paytest').map(serializeShipping) });
   })
 );
 

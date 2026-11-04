@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../lib/asyncHandler';
-import { readCustomerSession } from '../lib/cookies';
+import { readAdminSession, readCustomerSession } from '../lib/cookies';
 import { nextOrderNumber } from '../lib/orderNumber';
 import { rateLimit } from '../lib/rateLimit';
 import { shippingMatchesCountry } from '../lib/shared/shipping';
@@ -16,7 +16,7 @@ const router = Router();
 
 type CartLine = { variant_id: number; quantity: number };
 
-async function loadCart(lines: CartLine[]) {
+async function loadCart(lines: CartLine[], allowUnpublished: boolean) {
   const items: Array<{
     variant: Variant;
     product: Product;
@@ -30,7 +30,7 @@ async function loadCart(lines: CartLine[]) {
     if (!variant) throw new Error('A cart item is no longer available.');
     if (variant.stock < quantity) throw new Error(`${variant.title} does not have enough stock.`);
     const product = await Product.findByPk(variant.product_id);
-    if (!product || !product.published) throw new Error('A cart item is no longer available.');
+    if (!product || (!product.published && !allowUnpublished)) throw new Error('A cart item is no longer available.');
     items.push({ variant, product, quantity, unit_price: variant.price });
   }
   if (!items.length) throw new Error('Your cart is empty.');
@@ -43,9 +43,21 @@ router.post(
   asyncHandler(async (req, res) => {
     const body = req.body || {};
     const lines = Array.isArray(body.items) ? (body.items as CartLine[]) : [];
-    const items = await loadCart(lines);
-    const shipping = await ShippingRate.findByPk(Number(body.shipping_rate_id));
-    if (!shipping) {
+    const admin = await readAdminSession(req);
+    const usePaytest = Boolean(body.paytest);
+    if (usePaytest && !admin) {
+      res.status(403).json({ error: 'Sign in required' });
+      return;
+    }
+    const items = await loadCart(lines, Boolean(admin));
+    if (usePaytest && items.some((item) => item.product.handle !== 'payment-test')) {
+      res.status(400).json({ error: 'Choose a shipping rate.' });
+      return;
+    }
+    const shipping = usePaytest
+      ? await ShippingRate.findOne({ where: { code: 'paytest' } })
+      : await ShippingRate.findByPk(Number(body.shipping_rate_id));
+    if (!shipping || (shipping.code === 'paytest' && (!admin || items.some((item) => item.product.handle !== 'payment-test')))) {
       res.status(400).json({ error: 'Choose a shipping rate.' });
       return;
     }
@@ -126,14 +138,18 @@ router.post(
             },
           },
         })),
-        {
-          quantity: 1,
-          price_data: {
-            currency: 'hkd',
-            unit_amount: shippingCents,
-            product_data: { name: `Shipping — ${shipping.name}` },
-          },
-        },
+        ...(shippingCents > 0
+          ? [
+              {
+                quantity: 1,
+                price_data: {
+                  currency: 'hkd',
+                  unit_amount: shippingCents,
+                  product_data: { name: `Shipping — ${shipping.name}` },
+                },
+              },
+            ]
+          : []),
       ],
     });
     } catch (error) {

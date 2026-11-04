@@ -133,6 +133,7 @@ export default function AdminProductEditorPage() {
   const [photoEdit, setPhotoEdit] = useState<PhotoEdit | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin/collections')
@@ -383,6 +384,35 @@ export default function AdminProductEditorPage() {
     showSaveNotice(result.notice);
   }
 
+  async function payTest() {
+    const variant = variants.find((item) => item.id > 0);
+    if (!variant) {
+      showSaveNotice('Save the product first', 'error');
+      return;
+    }
+    setPaying(true);
+    const response = await fetch('/api/checkout/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        paytest: true,
+        items: [{ variant_id: variant.id, quantity: 1 }],
+        email: 'hello@luuxmart.com',
+        shipping_name: 'LUUX test',
+        shipping_line1: 'Payment test',
+        shipping_city: 'Hong Kong',
+        shipping_country: 'ZZ',
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    setPaying(false);
+    if (!response.ok || !data.url) {
+      showSaveNotice(data.error || 'Payment could not be started', 'error');
+      return;
+    }
+    window.location.href = data.url;
+  }
+
   async function removeProduct() {
     if (!productId) return;
     setDeleting(true);
@@ -404,9 +434,16 @@ export default function AdminProductEditorPage() {
         backLabel="Back to products"
         trailing={
           !isNew && productId ? (
-            <Button helpKey="admin.product.delete" variant="danger" onClick={() => setDeleteOpen(true)}>
-              Delete
-            </Button>
+            <div className="flex items-center gap-2">
+              {handle === 'payment-test' ? (
+                <Button helpKey="admin.product.paytest" type="button" disabled={paying} onClick={() => void payTest()}>
+                  {paying ? 'Opening Stripe…' : 'Pay US$1 test'}
+                </Button>
+              ) : null}
+              <Button helpKey="admin.product.delete" variant="danger" onClick={() => setDeleteOpen(true)}>
+                Delete
+              </Button>
+            </div>
           ) : null
         }
       />

@@ -6,8 +6,10 @@ import AdminUser from '../models/AdminUser';
 import HelpTip from '../models/HelpTip';
 import Page from '../models/Page';
 import Currency from '../models/Currency';
+import Product from '../models/Product';
 import ShippingRate from '../models/ShippingRate';
 import SiteSetting from '../models/SiteSetting';
+import Variant from '../models/Variant';
 
 const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'nav.menu', title: 'Menu', body: 'Open the site menu.' },
@@ -59,6 +61,7 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.product.save', title: 'Save product', body: 'Save this product, its variants, and photos.' },
   { helpKey: 'admin.product.new', title: 'Add product', body: 'Create a new lamp.' },
   { helpKey: 'admin.product.delete', title: 'Delete product', body: 'Remove this lamp from the shop.' },
+  { helpKey: 'admin.product.paytest', title: 'Pay US$1 test', body: 'Open a Stripe card payment for this hidden product. The shop does not list it. The charge is about US$1 in Hong Kong dollars, with no shipping.' },
   { helpKey: 'admin.product.edit', title: 'Edit', body: 'Open this product in the editor.' },
   { helpKey: 'admin.product.sort_title', title: 'Sort by name', body: 'Sort the product list by lamp name. Click again to reverse the order.' },
   { helpKey: 'admin.product.sort_price', title: 'Sort by price', body: 'Sort the product list by price. Click again to reverse the order.' },
@@ -391,6 +394,63 @@ export async function ensureCurrencies(): Promise<void> {
       await Currency.create(row);
     }
   }
+}
+
+export async function ensurePaymentTestProduct(): Promise<void> {
+  const rate = await ShippingRate.findOne({ where: { code: 'paytest' } });
+  if (rate) {
+    rate.name = 'Payment test';
+    rate.amount = '0.00';
+    rate.countries = 'ZZ';
+    rate.sort_order = 99;
+    await rate.save();
+  } else {
+    await ShippingRate.create({
+      name: 'Payment test',
+      code: 'paytest',
+      amount: '0.00',
+      countries: 'ZZ',
+      sort_order: 99,
+    });
+  }
+
+  const usd = await Currency.findByPk('USD');
+  const usdPerHkd = Number(usd?.rate || '0.1282');
+  const price = usdPerHkd > 0 ? (1 / usdPerHkd).toFixed(2) : '7.80';
+
+  let product = await Product.findOne({ where: { handle: 'payment-test' } });
+  if (!product) {
+    product = await Product.create({
+      title: 'Payment test',
+      handle: 'payment-test',
+      body_html: '<p>Staff-only card test of about US$1. This product is not shown on the shop.</p>',
+      vendor: 'LUUX',
+      product_type: 'Test',
+      tags: '',
+      published: false,
+      featured: false,
+    });
+  } else {
+    product.published = false;
+    product.featured = false;
+    await product.save();
+  }
+
+  const variant = await Variant.findOne({ where: { product_id: product.id } });
+  if (!variant) {
+    await Variant.create({
+      product_id: product.id,
+      title: 'Default Title',
+      sku: 'PAYTEST',
+      price,
+      stock: 50,
+    });
+    return;
+  }
+  variant.price = price;
+  variant.sku = variant.sku || 'PAYTEST';
+  if (variant.stock < 1) variant.stock = 50;
+  await variant.save();
 }
 
 export async function ensureShippingRates(): Promise<void> {

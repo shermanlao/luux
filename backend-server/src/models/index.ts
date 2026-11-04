@@ -6,6 +6,7 @@ import {
   ensureTrafficColumns,
   ensureDefaultAdmin,
   ensureDefaultPages,
+  ensurePaymentTestProduct,
   ensureShippingRates,
   ensureSiteSettings,
   upsertHelpTips,
@@ -70,6 +71,7 @@ async function syncDatabase() {
     await ensureSiteSettings();
     await ensureCurrencies();
     await ensureShippingRates();
+    await ensurePaymentTestProduct();
     await ensureDefaultPages();
     console.log('All models were synchronized successfully.');
   } catch (error) {
