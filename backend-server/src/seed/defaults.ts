@@ -106,6 +106,7 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.marketing.confirm', title: 'Confirm and post', body: 'Publish this draft to the selected channels.' },
   { helpKey: 'admin.marketing.export', title: 'Export JSON', body: 'Download this campaign document for another app.' },
   { helpKey: 'admin.shipping.save', title: 'Save rates', body: 'Save the shipping amounts.' },
+  { helpKey: 'admin.order.open', title: 'Open order', body: 'Open this order’s items, totals, and shipping address.' },
   { helpKey: 'admin.order.fulfill', title: 'Mark fulfilled', body: 'Mark this paid order as shipped.' },
   { helpKey: 'admin.order.cancel', title: 'Cancel order', body: 'Cancel this order. Stripe refunds are done in the Stripe dashboard.' },
   { helpKey: 'admin.confirm.cancel', title: 'Cancel', body: 'Close this confirmation.' },
@@ -474,13 +475,18 @@ export async function ensureShippingRates(): Promise<void> {
   ]);
 }
 
+const ABOUT_NOTE =
+  '<p class="about-note" style="margin:0 0 1.5rem;padding:0.9rem 1.1rem;background:#f3f7f5;border-left:4px solid #7A9E8F;font-weight:600;">All products on this website are replicas, not original products.</p>';
+const ABOUT_NOTE_PREVIOUS = 'All of the problems on this website are about replicated products, not original products.';
+
 export async function ensureDefaultPages(): Promise<void> {
   const pages = [
     {
       title: 'About Us',
       handle: 'about-us',
       kind: 'page' as const,
-      body_html: `<h2>Welcome to LUUX</h2>
+      body_html: `${ABOUT_NOTE}
+<h2>Welcome to LUUX</h2>
 <p>LUUX is your premier destination for high-quality lighting solutions that transform spaces into beautifully illuminated environments. We specialize in modern, elegant lighting products including ceiling lamps, wall lights, and carefully curated lighting accessories.</p>
 <h3>Our Business</h3>
 <p>We are a Hong Kong-based lighting retailer committed to bringing premium lighting products to customers worldwide. Our carefully selected collection features contemporary designs that blend functionality with aesthetic appeal, perfect for both residential and commercial spaces.</p>
@@ -526,6 +532,15 @@ export async function ensureDefaultPages(): Promise<void> {
   for (const page of pages) {
     const found = await Page.findOne({ where: { handle: page.handle } });
     if (!found) await Page.create(page);
+  }
+
+  const about = await Page.findOne({ where: { handle: 'about-us' } });
+  if (about && about.body_html.includes(ABOUT_NOTE_PREVIOUS)) {
+    about.body_html = about.body_html.replace(ABOUT_NOTE_PREVIOUS, 'All products on this website are replicas, not original products.');
+    await about.save();
+  } else if (about && !about.body_html.includes('class="about-note"')) {
+    about.body_html = `${ABOUT_NOTE}\n${about.body_html}`;
+    await about.save();
   }
 }
 

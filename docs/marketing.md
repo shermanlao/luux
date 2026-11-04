@@ -29,7 +29,11 @@ The same campaign document is what another app receives from the HTTP API.
 
 ## Traffic
 
-A storefront beacon posts the path to `POST /api/traffic`. Counts live in `page_views` (`app`, `path`, `day`, `count`, `seconds`, `stays`). The server reads the visitor address only to name the country, then discards it. Country totals live in `traffic_countries`. The same request can include a source label: Direct, Google, Instagram, Facebook, Threads, Pinterest, Bing, Yahoo, or Other. Those totals live in `traffic_sources`. When the visitor leaves the page, a second request adds how many seconds it stayed open, up to 30 minutes. Marketing shows the country list, the average stay, and the stay beside each page. There is no new cookie and no IP in those tables. A link with `utm_source` uses that label. A click from LUUX to another LUUX page does not add a source. Admin paths are skipped. Paid and fulfilled orders are summed by day for the LUUX overview. Views recorded before this change have no country, source, or stay time.
+A storefront beacon posts the path to `POST /api/traffic` when a normal browser opens a shop page. Counts live in `page_views` (`app`, `path`, `day`, `count`, `seconds`, `stays`). The server reads the visitor address only to name the country, then discards it. Country totals live in `traffic_countries`. The same request can include a source label: Direct, Google, Instagram, Facebook, Threads, Pinterest, Bing, Yahoo, or Other. Those totals live in `traffic_sources`. When the visitor leaves the page, a second request adds how many seconds it stayed open, up to 30 minutes.
+
+Each new page view is also labeled Human, AI, or Web scraping. The label comes from the browser name on the request. That name is not stored. Totals live in `traffic_kinds`. Human is a normal browser. AI is a known assistant or model crawler, such as GPTBot, ClaudeBot, PerplexityBot, Google-Extended, or Bytespider. Web scraping is other automated fetching, including search crawlers such as Googlebot and Bingbot, scripts such as curl, and headless browsers. A shop page requested by one of those clients is counted from the server, because those clients usually do not run the beacon. Country, source, and time on a page count browsers only. Page views, top pages, and the daily view column include all three. A script that presents itself as Chrome is counted as Human. Views recorded before this change have no visitor type, so the three rows can add up to less than page views.
+
+There is no new cookie and no IP in those tables. A link with `utm_source` uses that label. A click from LUUX to another LUUX page does not add a source. Admin paths are skipped. Paid and fulfilled orders are summed by day for the LUUX overview. Views recorded before the country change have no country, source, or stay time. The draft sent to the model includes `visitor_kinds` for this shop. Other apps can omit it.
 
 ## Staff routes
 
@@ -37,7 +41,7 @@ Staff use the admin cookie. `app` defaults to `luux`.
 
 | Method | Path | Use |
 | --- | --- | --- |
-| GET | `/api/marketing/v1/overview` | Views, countries, sources, average stay, top paths, paid totals, connected channels, saved campaigns |
+| GET | `/api/marketing/v1/overview` | Views, visitor type, countries, sources, average stay, top paths, paid totals, connected channels, saved campaigns |
 | POST | `/api/marketing/v1/drafts` | Draft from shop data when `catalog` is omitted |
 | PUT | `/api/marketing/v1/drafts/:id` | Edit caption, image, link, and channels while it is not posted |
 | POST | `/api/marketing/v1/drafts/:id/publish` | Post the selected channels |

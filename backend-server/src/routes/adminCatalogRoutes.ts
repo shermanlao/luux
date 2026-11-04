@@ -5,7 +5,8 @@ import { requireAdmin } from '../lib/authMiddleware';
 import { editProductPhotoFile, saveProductImageDataUrl } from '../lib/productPhotoEdit';
 import { slugify } from '../lib/shared/slugify';
 import { importProductFromUrl } from '../lib/productImport';
-import { PRODUCT_INCLUDE, serializeCollection, serializeProduct } from '../lib/serialize';
+import { normalizeOptionTags, syncVariantPhotos } from '../lib/photoOptions';
+import { PRODUCT_INCLUDE, serializeCollection, serializeImage, serializeProduct, serializeVariant } from '../lib/serialize';
 import Collection from '../models/Collection';
 import Product from '../models/Product';
 import SiteSetting from '../models/SiteSetting';
@@ -107,7 +108,18 @@ async function saveVariantsAndOptions(productId: number, body: Record<string, un
         stock?: number;
         image_id?: number | null;
       };
-      const payload = {
+      const payload: {
+        product_id: number;
+        title: string;
+        sku: string;
+        price: string;
+        compare_at_price: string | null;
+        option1: string | null;
+        option2: string | null;
+        option3: string | null;
+        stock: number;
+        image_id?: number | null;
+      } = {
         product_id: productId,
         title: clip(row.title || [row.option1, row.option2, row.option3].filter(Boolean).join(' / ') || 'Default Title'),
         sku: clip(row.sku || ''),
@@ -117,8 +129,10 @@ async function saveVariantsAndOptions(productId: number, body: Record<string, un
         option2: row.option2 ? clip(row.option2) : null,
         option3: row.option3 ? clip(row.option3) : null,
         stock: Number.isFinite(Number(row.stock)) ? Number(row.stock) : 0,
-        image_id: row.image_id || null,
       };
+      if (Object.prototype.hasOwnProperty.call(row, 'image_id')) {
+        payload.image_id = row.image_id ? Number(row.image_id) : null;
+      }
       if (row.id) {
         const existing = await Variant.findOne({ where: { id: row.id, product_id: productId } });
         if (existing) {
@@ -233,8 +247,13 @@ router.post(
       src,
       alt: clip(req.body?.alt || product.title),
       position: (max || 0) + 1,
+      option_tags: Array.isArray(req.body?.option_tags) ? JSON.stringify(normalizeOptionTags(req.body.option_tags)) : null,
     });
-    res.json({ image: { id: image.id, src: image.src, alt: image.alt, position: image.position } });
+    const synced = Array.isArray(req.body?.option_tags) ? await syncVariantPhotos(product.id) : null;
+    res.json({
+      image: serializeImage(image),
+      ...(synced ? { variants: synced.variants.map(serializeVariant) } : {}),
+    });
   })
 );
 
@@ -284,14 +303,7 @@ router.post(
         await ordered[index].save();
       }
     }
-    res.json({
-      images: ordered.map((row) => ({
-        id: row.id,
-        src: row.src,
-        alt: row.alt,
-        position: row.position,
-      })),
-    });
+    res.json({ images: ordered.map(serializeImage) });
   })
 );
 
@@ -301,14 +313,27 @@ router.put(
     const image = await ProductImage.findByPk(req.params.id);
     if (!image) return notFound(res, 'Image');
     const src = String(req.body?.src || '').trim();
-    if (!src.startsWith('/uploads/')) {
+    const hasTags = Array.isArray(req.body?.option_tags);
+    if (src) {
+      if (!src.startsWith('/uploads/')) {
+        res.status(400).json({ error: 'Image path is required.' });
+        return;
+      }
+      image.src = src;
+    } else if (!hasTags) {
       res.status(400).json({ error: 'Image path is required.' });
       return;
     }
-    image.src = src;
     if (req.body?.alt != null) image.alt = clip(req.body.alt);
+    if (hasTags) image.option_tags = JSON.stringify(normalizeOptionTags(req.body.option_tags));
     await image.save();
-    res.json({ image: { id: image.id, src: image.src, alt: image.alt, position: image.position } });
+    const synced = hasTags ? await syncVariantPhotos(image.product_id) : null;
+    res.json({
+      image: serializeImage(image),
+      ...(synced
+        ? { images: synced.images.map(serializeImage), variants: synced.variants.map(serializeVariant) }
+        : {}),
+    });
   })
 );
 

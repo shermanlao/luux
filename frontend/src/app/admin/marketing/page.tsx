@@ -23,9 +23,12 @@ type Draft = {
   analysis: Analysis;
 };
 
+const VISITOR_KINDS = ['Human', 'AI', 'Web scraping'] as const;
+
 type Overview = {
   views: number;
   average_stay_seconds: number;
+  kinds: Array<{ kind: string; count: number }>;
   countries: Array<{ country: string; count: number }>;
   sources: Array<{ source: string; count: number }>;
   top_paths: Array<{ path: string; count: number; stay_seconds: number }>;
@@ -53,6 +56,7 @@ function cardsFrom(overview: Overview): Draft[] {
 
 export default function AdminMarketingPage() {
   const [views, setViews] = useState(0);
+  const [kinds, setKinds] = useState<Overview['kinds']>(VISITOR_KINDS.map((kind) => ({ kind, count: 0 })));
   const [averageStay, setAverageStay] = useState(0);
   const [countries, setCountries] = useState<Overview['countries']>([]);
   const [sources, setSources] = useState<Overview['sources']>([]);
@@ -73,6 +77,8 @@ export default function AdminMarketingPage() {
       .then((res) => res.json())
       .then((data: Overview) => {
         setViews(data.views || 0);
+        const counts = new Map((data.kinds || []).map((row) => [row.kind, row.count]));
+        setKinds(VISITOR_KINDS.map((kind) => ({ kind, count: counts.get(kind) || 0 })));
         setAverageStay(data.average_stay_seconds || 0);
         setCountries(data.countries || []);
         setSources(data.sources || []);
@@ -175,7 +181,7 @@ export default function AdminMarketingPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <AdminPageHeader title="Marketing" />
-      <p className="text-sm text-gray-600">Last 30 days. Country, source, and time on a page are anonymous. The address itself is not stored. Nothing posts until you confirm.</p>
+      <p className="text-sm text-gray-600">Last 30 days. Page views include browsers, AI crawlers, and other automated fetching. Country, source, and time on a page count browsers only. The address itself is not stored. Nothing posts until you confirm.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded border border-gray-200 p-3">
           <p className="text-sm text-gray-500">Page views</p>
@@ -194,8 +200,18 @@ export default function AdminMarketingPage() {
           <p className="text-2xl">{paidTotal}</p>
         </div>
       </div>
+      <h2 className="mt-6 text-sm font-medium">Who visited</h2>
+      <p className="mt-1 text-sm text-gray-500">Human is a normal browser. AI is a known assistant or model crawler. Web scraping is other automated fetching, including search crawlers and scripts. The label is the browser name on the request, and that name is not stored. Earlier views are not included.</p>
+      <ul className="mt-2 space-y-1 text-sm">
+        {kinds.map((row) => (
+          <li key={row.kind} className="flex justify-between gap-4">
+            <span>{row.kind}</span>
+            <span>{row.count}</span>
+          </li>
+        ))}
+      </ul>
       <h2 className="mt-6 text-sm font-medium">Country</h2>
-      <p className="mt-1 text-sm text-gray-500">Page views by country. Earlier views are not included.</p>
+      <p className="mt-1 text-sm text-gray-500">Browser page views by country. Earlier views are not included.</p>
       {countries.length ? (
         <ul className="mt-2 space-y-1 text-sm">
           {countries.map((row) => (
@@ -211,7 +227,7 @@ export default function AdminMarketingPage() {
       <h2 className="mt-6 text-sm font-medium">How long they stayed</h2>
       <p className="mt-1 text-sm text-gray-500">Average time on a page, measured when someone leaves it. A tab left open counts at most 30 minutes. Average so far: {formatStay(averageStay)}.</p>
       <h2 className="mt-6 text-sm font-medium">Where they came from</h2>
-      <p className="mt-1 text-sm text-gray-500">A visit from another site, or someone who typed the address. Moving between LUUX pages is not a new source. Earlier views are not included.</p>
+      <p className="mt-1 text-sm text-gray-500">A browser visit from another site, or someone who typed the address. Moving between LUUX pages is not a new source. Earlier views are not included.</p>
       {sources.length ? (
         <ul className="mt-2 space-y-1 text-sm">
           {sources.map((row) => (

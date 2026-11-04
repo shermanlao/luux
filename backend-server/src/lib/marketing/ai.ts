@@ -67,7 +67,7 @@ export async function requestAiDraft(input: MarketingInput, ai: { baseUrl: strin
         {
           role: 'system',
           content:
-            'You plan short social posts for a shop. Reply with JSON only: {"summary":"","findings":[""],"campaigns":[{"caption":"","image_url":"","link":"","channels":["facebook"],"rationale":""}]}. Use only the channels listed in the input. Use catalog image and url values when they fit the post.',
+            'You plan short social posts for a shop. Reply with JSON only: {"summary":"","findings":[""],"campaigns":[{"caption":"","image_url":"","link":"","channels":["facebook"],"rationale":""}]}. Use only the channels listed in the input. Use catalog image and url values when they fit the post. When visitor_kinds is present, it splits page views into Human, AI, and Web scraping.',
         },
         { role: 'user', content: JSON.stringify(input) },
       ],

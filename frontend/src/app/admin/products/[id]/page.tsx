@@ -11,6 +11,7 @@ import { TextInput } from '@/components/ui/FormField';
 import HtmlField from '@/components/ui/HtmlField';
 import ToggleSwitch from '@/components/ui/ToggleSwitch';
 import { showSaveNotice } from '@/components/ui/SaveNotice';
+import { effectivePhotoTags, type OptionTag } from '@/lib/photoOptions';
 import type { Collection, Product, ProductOption, Variant } from '@/lib/types';
 
 type DraftVariant = Variant & { _key?: string };
@@ -94,7 +95,7 @@ function variantsFromOptions(
     : `Created ${variants.length} ${variants.length === 1 ? 'variant' : 'variants'}.`;
   return { variants, notice };
 }
-type PendingImage = { src: string; alt: string };
+type PendingImage = { src: string; alt: string; option_tags?: OptionTag[] | null };
 type PhotoEdit = { slotLabel: string; src: string; alt: string; savedId?: number; pendingIndex?: number };
 type ImportedProduct = {
   title: string;
@@ -190,6 +191,7 @@ export default function AdminProductEditorPage() {
         option2: variant.option2,
         option3: variant.option3,
         stock: variant.stock,
+        image_id: variant.image_id || null,
       })),
       collection_ids: collectionIds,
     };
@@ -213,7 +215,11 @@ export default function AdminProductEditorPage() {
           const attached = await fetch(`/api/admin/products/${savedId}/images`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ src: image.src, alt: image.alt || title }),
+            body: JSON.stringify({
+              src: image.src,
+              alt: image.alt || title,
+              ...(Array.isArray(image.option_tags) ? { option_tags: image.option_tags } : {}),
+            }),
           });
           if (!attached.ok) {
             showSaveNotice('Product saved, but a photo could not be attached.', 'error');
@@ -353,22 +359,37 @@ export default function AdminProductEditorPage() {
     }
   }
 
-  async function applyPhoto(src: string) {
+  async function applyPhoto(src: string, optionTags: OptionTag[]) {
     if (!photoEdit) return;
     if (photoEdit.savedId) {
       const response = await fetch(`/api/admin/images/${photoEdit.savedId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ src, alt: photoEdit.alt || title }),
+        body: JSON.stringify({ src, alt: photoEdit.alt || title, option_tags: optionTags }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Could not replace this photo.');
-      setImages((current) =>
-        current.map((image) => (image.id === photoEdit.savedId ? { ...image, src: data.image?.src || src } : image))
-      );
+      if (Array.isArray(data.images)) setImages(data.images);
+      else {
+        setImages((current) =>
+          current.map((image) =>
+            image.id === photoEdit.savedId ? { ...image, src: data.image?.src || src, option_tags: optionTags } : image
+          )
+        );
+      }
+      if (Array.isArray(data.variants)) {
+        setVariants((current) =>
+          current.map((row) => {
+            const fresh = data.variants.find((variant: Variant) => variant.id === row.id);
+            return fresh ? { ...row, image_id: fresh.image_id } : row;
+          })
+        );
+      }
     } else if (photoEdit.pendingIndex != null) {
       const pendingIndex = photoEdit.pendingIndex;
-      setPendingImages((current) => current.map((image, index) => (index === pendingIndex ? { ...image, src } : image)));
+      setPendingImages((current) =>
+        current.map((image, index) => (index === pendingIndex ? { ...image, src, option_tags: optionTags } : image))
+      );
     }
     setPhotoEdit(null);
     showSaveNotice('Photo updated');
@@ -425,6 +446,35 @@ export default function AdminProductEditorPage() {
     }
     router.push('/admin/products');
   }
+
+  const photoSources = [
+    ...images.map((image, index) => ({
+      key: `saved-${image.id}`,
+      id: image.id,
+      slotLabel: `Photo ${index + 1}`,
+      option_tags: image.option_tags ?? null,
+    })),
+    ...pendingImages.map((image, index) => ({
+      key: `pending-${index}`,
+      id: null,
+      slotLabel: `Photo ${images.length + index + 1}`,
+      option_tags: image.option_tags ?? null,
+    })),
+  ];
+  const activePhotoKey = photoEdit?.savedId
+    ? `saved-${photoEdit.savedId}`
+    : photoEdit?.pendingIndex != null
+      ? `pending-${photoEdit.pendingIndex}`
+      : '';
+  const photoTags = effectivePhotoTags(photoSources, options, variants);
+  const photoOptionState = {
+    initialTags: photoTags.get(activePhotoKey) || [],
+    otherClaims: photoSources.flatMap((photo) =>
+      photo.key === activePhotoKey
+        ? []
+        : (photoTags.get(photo.key) || []).map((tag) => ({ ...tag, slotLabel: photo.slotLabel }))
+    ),
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -700,6 +750,9 @@ export default function AdminProductEditorPage() {
         open={Boolean(photoEdit)}
         slotLabel={photoEdit?.slotLabel || 'Photo'}
         sourceSrc={photoEdit?.src || ''}
+        options={options}
+        initialTags={photoOptionState.initialTags}
+        otherClaims={photoOptionState.otherClaims}
         onCancel={() => setPhotoEdit(null)}
         onApply={applyPhoto}
       />

@@ -1,4 +1,5 @@
-export type ProductImage = { id: number; src: string; alt: string; position: number };
+export type OptionTag = { option: string; value: string };
+export type ProductImage = { id: number; src: string; alt: string; position: number; option_tags: OptionTag[] | null };
 export type ProductOption = { id: number; name: string; position: number; values: string[] };
 export type Variant = {
   id: number;
@@ -112,6 +113,8 @@ export type Order = {
   shipping_postal: string;
   shipping_country: string;
   shipping_rate_name: string;
+  notes?: string;
+  stripe_payment_intent?: string | null;
   createdAt?: string;
   items: Array<{
     id: number;

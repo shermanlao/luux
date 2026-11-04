@@ -7,6 +7,7 @@ class ProductImage extends Model {
   declare src: string;
   declare alt: string;
   declare position: number;
+  declare option_tags: string | null;
 }
 
 ProductImage.init(
@@ -16,6 +17,7 @@ ProductImage.init(
     src: { type: DataTypes.STRING, allowNull: false },
     alt: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    option_tags: { type: DataTypes.TEXT, allowNull: true },
   },
   { sequelize, modelName: 'ProductImage', tableName: 'product_images' }
 );

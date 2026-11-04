@@ -8,6 +8,7 @@ import type ProductOption from '../models/ProductOption';
 import type SiteSetting from '../models/SiteSetting';
 import type Variant from '../models/Variant';
 import type ShippingRate from '../models/ShippingRate';
+import { parseOptionTags } from './photoOptions';
 
 function parseJsonArray(raw: string | null | undefined): string[] {
   try {
@@ -24,6 +25,7 @@ export function serializeImage(image: ProductImage) {
     src: image.src,
     alt: image.alt,
     position: image.position,
+    option_tags: parseOptionTags(image.option_tags),
   };
 }
 
@@ -184,7 +186,9 @@ export function serializeOrder(order: Order & { items?: OrderItem[] }) {
     shipping_postal: order.shipping_postal,
     shipping_country: order.shipping_country,
     shipping_rate_name: order.shipping_rate_name,
+    notes: order.notes,
     stripe_session_id: order.stripe_session_id,
+    stripe_payment_intent: order.stripe_payment_intent,
     createdAt: order.createdAt,
     items: (order.items || []).map((item) => ({
       id: item.id,

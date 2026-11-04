@@ -204,6 +204,14 @@ body {
   .prose-luux li {
     margin-bottom: 0.75rem;
   }
+
+  .prose-luux .about-note {
+    margin: 0 0 1.5rem;
+    padding: 0.9rem 1.1rem;
+    background: #f3f7f5;
+    border-left: 4px solid #7a9e8f;
+    font-weight: 600;
+  }
 }
 
 @keyframes spin {

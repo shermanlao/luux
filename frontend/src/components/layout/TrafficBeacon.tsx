@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { visitorKind } from '@shared/visitorKind';
 
 function visitSource(): string {
   const token = (new URLSearchParams(window.location.search).get('utm_source') || '').trim().toLowerCase();
@@ -46,6 +47,7 @@ export default function TrafficBeacon() {
 
   useEffect(() => {
     if (pathname.startsWith('/admin')) return;
+    if (visitorKind(navigator.userAgent) !== 'Human') return;
     const path = pathname.split('?')[0].slice(0, 200);
     const source = visitSource();
     postTraffic(source ? { path, source } : { path });
