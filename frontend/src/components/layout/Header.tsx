@@ -102,7 +102,7 @@ export default function Header({ collections, logo }: { collections: Collection[
               <div className="absolute left-0 top-full min-w-[10rem] bg-white py-2 shadow-lg">
                 <HelpLink
                   helpKey="nav.shop_all"
-                  href="/collections"
+                  href="/collections/all"
                   className="block px-4 py-2 text-xs tracking-widest hover:bg-gray-50"
                 >
                   ALL
@@ -188,7 +188,7 @@ export default function Header({ collections, logo }: { collections: Collection[
                 COLLECTIONS
               </HelpLink>
               <div className="mt-3 flex flex-col gap-3 pl-4 text-xs">
-                <HelpLink helpKey="nav.shop_all" href="/collections" className="hover:text-brand">
+                <HelpLink helpKey="nav.shop_all" href="/collections/all" className="hover:text-brand">
                   ALL
                 </HelpLink>
                 {collections.map((collection) => (

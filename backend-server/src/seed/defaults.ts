@@ -15,7 +15,7 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'nav.menu', title: 'Menu', body: 'Open the site menu.' },
   { helpKey: 'nav.home', title: 'Home', body: 'Open the LUUX homepage.' },
   { helpKey: 'nav.shop', title: 'Collections', body: 'Browse lighting collections.' },
-  { helpKey: 'nav.shop_all', title: 'All collections', body: 'Open every collection.' },
+  { helpKey: 'nav.shop_all', title: 'All products', body: 'Show every lamp.' },
   { helpKey: 'nav.about', title: 'About us', body: 'Read about LUUX.' },
   { helpKey: 'nav.contact', title: 'Contact us', body: 'Send a question or find our email and phone.' },
   { helpKey: 'nav.search', title: 'Search', body: 'Search products by name.' },
@@ -78,6 +78,7 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.image.delete', title: 'Delete photo', body: 'Remove this photo from the lamp.' },
   { helpKey: 'admin.image.edit', title: 'Edit photo', body: 'Open this photo in the AI editor.' },
   { helpKey: 'admin.image.main', title: 'Main photo', body: 'Use this photo on the shop, the product list, and as the first gallery photo.' },
+  { helpKey: 'admin.image.option', title: 'Photo option', body: 'Mark the option values this photo shows. A value used by another photo cannot be selected here.' },
   { helpKey: 'admin.image.ai_send', title: 'Send', body: 'Ask the AI to change this photo.' },
   { helpKey: 'admin.image.ai_apply', title: 'Apply', body: 'Replace this photo with the edited one.' },
   { helpKey: 'admin.image.ai_cancel', title: 'Cancel', body: 'Close the photo editor without replacing the photo.' },
@@ -191,6 +192,16 @@ async function ensureHeaderLogoColumn(): Promise<void> {
     type: DataTypes.STRING,
     allowNull: false,
     defaultValue: HEADER_LOGO,
+  });
+}
+
+export async function ensureProductImageOptionTags(): Promise<void> {
+  const queryInterface = sequelize.getQueryInterface();
+  const table = await queryInterface.describeTable('product_images').catch(() => null);
+  if (!table || table.option_tags) return;
+  await queryInterface.addColumn('product_images', 'option_tags', {
+    type: DataTypes.TEXT,
+    allowNull: true,
   });
 }
 

@@ -82,6 +82,28 @@ router.get(
 router.get(
   '/collections/:handle',
   asyncHandler(async (req, res) => {
+    if (req.params.handle === 'all') {
+      const rows = await Product.findAll({
+        where: { published: true },
+        include: PRODUCT_INCLUDE,
+        order: [['title', 'ASC']],
+      });
+      const products = rows.map((product) => serializeProduct(product));
+      res.json({
+        collection: {
+          id: 0,
+          title: 'ALL',
+          handle: 'all',
+          description: '',
+          image: '',
+          sort_order: 0,
+          published: true,
+          products_count: products.length,
+        },
+        products,
+      });
+      return;
+    }
     const collection = await Collection.findOne({
       where: { handle: req.params.handle, published: true },
       include: [
