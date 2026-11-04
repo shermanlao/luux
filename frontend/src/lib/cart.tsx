@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { CartLine } from './types';
 
 const KEY = 'luux_cart';
@@ -42,35 +42,44 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem(KEY, JSON.stringify(lines));
   }, [lines, ready]);
 
+  const add = useCallback((line: Omit<CartLine, 'quantity'>, quantity = 1) => {
+    setLines((current) => {
+      const existing = current.find((item) => item.variant_id === line.variant_id);
+      if (existing) {
+        return current.map((item) =>
+          item.variant_id === line.variant_id ? { ...item, quantity: item.quantity + quantity } : item
+        );
+      }
+      return [...current, { ...line, quantity }];
+    });
+  }, []);
+
+  const setQuantity = useCallback((variant_id: number, quantity: number) => {
+    setLines((current) =>
+      current
+        .map((item) => (item.variant_id === variant_id ? { ...item, quantity } : item))
+        .filter((item) => item.quantity > 0)
+    );
+  }, []);
+
+  const remove = useCallback((variant_id: number) => {
+    setLines((current) => current.filter((item) => item.variant_id !== variant_id));
+  }, []);
+
+  const clear = useCallback(() => {
+    try {
+      window.localStorage.setItem(KEY, '[]');
+    } catch {
+      // The thank-you page still continues if storage is blocked.
+    }
+    setLines((current) => (current.length ? [] : current));
+  }, []);
+
   const value = useMemo<CartContextValue>(() => {
     const count = lines.reduce((sum, line) => sum + line.quantity, 0);
     const subtotal = lines.reduce((sum, line) => sum + Number(line.price) * line.quantity, 0);
-    return {
-      lines,
-      count,
-      subtotal,
-      add: (line, quantity = 1) => {
-        setLines((current) => {
-          const existing = current.find((item) => item.variant_id === line.variant_id);
-          if (existing) {
-            return current.map((item) =>
-              item.variant_id === line.variant_id ? { ...item, quantity: item.quantity + quantity } : item
-            );
-          }
-          return [...current, { ...line, quantity }];
-        });
-      },
-      setQuantity: (variant_id, quantity) => {
-        setLines((current) =>
-          current
-            .map((item) => (item.variant_id === variant_id ? { ...item, quantity } : item))
-            .filter((item) => item.quantity > 0)
-        );
-      },
-      remove: (variant_id) => setLines((current) => current.filter((item) => item.variant_id !== variant_id)),
-      clear: () => setLines([]),
-    };
-  }, [lines]);
+    return { lines, count, subtotal, add, setQuantity, remove, clear };
+  }, [lines, add, setQuantity, remove, clear]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

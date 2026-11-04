@@ -34,3 +34,5 @@ Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`
 Prices are HKD with two decimal places (`unit_amount` in cents). Refunds are done in the Stripe dashboard.
 
 Staff can charge about US$1 without listing a lamp: the unpublished product `payment-test` has **Pay US$1 test** in the admin editor. That checkout uses the hidden `paytest` shipping rate (HK$0, country `ZZ`), which the public shipping list does not return.
+
+`/checkout/success` clears the cart once, then polls the order up to five times. Home (`nav.home`) and Account (`nav.account`) leave that page. The cart clear does not start a new render when the cart is already empty, so those links stay clickable while the page waits for the webhook.

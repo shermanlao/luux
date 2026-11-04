@@ -15,9 +15,13 @@ function SuccessBody() {
 
   useEffect(() => {
     clear();
+  }, [clear]);
+
+  useEffect(() => {
     if (!sessionId) return;
     let stopped = false;
     let attempts = 0;
+    let timer = 0;
     async function load() {
       const response = await fetch(`/api/checkout/session/${sessionId}`);
       const data = await response.json().catch(() => ({}));
@@ -26,15 +30,16 @@ function SuccessBody() {
       setOrder(next);
       if (next && next.status !== 'pending') return;
       attempts += 1;
-      if (attempts < 5) window.setTimeout(load, 1500);
+      if (attempts < 5) timer = window.setTimeout(load, 1500);
     }
     load().catch(() => {
       if (!stopped) setOrder(null);
     });
     return () => {
       stopped = true;
+      window.clearTimeout(timer);
     };
-  }, [sessionId, clear]);
+  }, [sessionId]);
 
   const recorded = order?.status === 'paid' || order?.status === 'fulfilled';
 
