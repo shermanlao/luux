@@ -23,7 +23,7 @@ Staff pages share a left panel (`AdminNav`) with Dashboard, Products, Collection
 | `/admin/pages` | Table of title, handle, and a short body. Edit opens that row’s title and HTML body, using the same Current / Display switch. About, Contact, privacy, cookie policy, refund, and terms. |
 | `/admin/settings` | Homepage announcement, hero, featured handles, header logo, browser icon, contact, Facebook, Instagram, Threads, and Pinterest profile links, SEO, cookie notice |
 | `/admin/integrations` | AI API base URL, key, and model. Stripe secret key, publishable key, and webhook secret. Facebook, Instagram, and Threads posting tokens. A marketing key for other apps, shown once. A blank secret keeps the saved value. The public site JSON does not include these. |
-| `/admin/marketing` | Last 30 days of anonymous page views and paid orders. Ask AI drafts a campaign. Confirm and post publishes to the connected channels. Export JSON downloads the same campaign document. See [Marketing](marketing.md). |
+| `/admin/marketing` | Last 30 days of anonymous page views, where visits came from, average time on a page, and paid orders. Ask AI drafts a campaign. Confirm and post publishes to the connected channels. Export JSON downloads the same campaign document. See [Marketing](marketing.md). |
 | `/admin/shipping` | Hong Kong and worldwide flat rates (HKD) |
 | `/admin/orders` | Paid Stripe orders; mark fulfilled or cancel. Cancelling a paid order returns the stock. Refunds stay in the Stripe Dashboard. |
 | `/admin/inquiries` | Contact form messages |

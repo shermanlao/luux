@@ -14,7 +14,7 @@ import Page from '../models/Page';
 import Product from '../models/Product';
 import ShippingRate from '../models/ShippingRate';
 import SiteSetting from '../models/SiteSetting';
-import { recordPageView } from '../lib/marketingLuux';
+import { recordTraffic } from '../lib/marketingLuux';
 import Currency from '../models/Currency';
 
 const router = Router();
@@ -209,14 +209,19 @@ router.post(
 
 router.post(
   '/traffic',
-  rateLimit({ windowMs: 15 * 60 * 1000, max: 120, name: 'traffic' }),
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 240, name: 'traffic' }),
   asyncHandler(async (req, res) => {
     const path = String(req.body?.path || '').split('?')[0].trim();
     if (!path.startsWith('/') || path.startsWith('/admin') || path.includes('..') || path.length > 200) {
       res.status(400).json({ error: 'That path is not counted.' });
       return;
     }
-    await recordPageView(path);
+    const seconds = Number(req.body?.seconds);
+    await recordTraffic({
+      path,
+      source: req.body?.source,
+      seconds: Number.isFinite(seconds) ? seconds : undefined,
+    });
     res.json({ ok: true });
   })
 );

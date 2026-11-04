@@ -4,12 +4,21 @@ import type { MarketingChannel, MarketingInput } from './marketing/types';
 import { isChannel } from './marketing/types';
 import Order from '../models/Order';
 import PageView from '../models/PageView';
+import TrafficSource from '../models/TrafficSource';
 import Product from '../models/Product';
 import ProductImage from '../models/ProductImage';
 import SiteSetting from '../models/SiteSetting';
 import Variant from '../models/Variant';
 
 const LUUX_APP = 'luux';
+const MAX_STAY_SECONDS = 30 * 60;
+const SOURCES = new Set(['Direct', 'Google', 'Instagram', 'Facebook', 'Threads', 'Pinterest', 'Bing', 'Yahoo', 'Other']);
+
+export function normalizeSource(value: unknown): string {
+  const source = String(value || '').trim();
+  if (!SOURCES.has(source)) return '';
+  return source;
+}
 
 function dayStamp(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -41,7 +50,32 @@ export async function recordPageView(path: string, app = LUUX_APP): Promise<void
   const day = dayStamp(new Date());
   const [row] = await PageView.findOrCreate({
     where: { app, path, day },
-    defaults: { app, path, day, count: 0 },
+    defaults: { app, path, day, count: 0, seconds: 0, stays: 0 },
+  });
+  row.count += 1;
+  await row.save();
+}
+
+export async function recordTraffic(input: { path: string; source?: string; seconds?: number }, app = LUUX_APP): Promise<void> {
+  const day = dayStamp(new Date());
+  const seconds = Number(input.seconds);
+  if (Number.isFinite(seconds) && seconds >= 1) {
+    const capped = Math.min(MAX_STAY_SECONDS, Math.round(seconds));
+    const [row] = await PageView.findOrCreate({
+      where: { app, path: input.path, day },
+      defaults: { app, path: input.path, day, count: 0, seconds: 0, stays: 0 },
+    });
+    row.seconds = Number(row.seconds || 0) + capped;
+    row.stays = Number(row.stays || 0) + 1;
+    await row.save();
+    return;
+  }
+  await recordPageView(input.path, app);
+  const source = normalizeSource(input.source);
+  if (!source) return;
+  const [row] = await TrafficSource.findOrCreate({
+    where: { app, source, day },
+    defaults: { app, source, day, count: 0 },
   });
   row.count += 1;
   await row.save();
@@ -109,13 +143,30 @@ export async function trafficSummary(app: string) {
   const since = sinceDate();
   const sinceDay = dayStamp(since);
   const views = await PageView.findAll({ where: { app, day: { [Op.gte]: sinceDay } } });
+  const sources = await TrafficSource.findAll({ where: { app, day: { [Op.gte]: sinceDay } } });
   const byPath = new Map<string, number>();
+  const secondsByPath = new Map<string, number>();
+  const staysByPath = new Map<string, number>();
   const viewsByDay = new Map<string, number>();
+  const sourceCounts = new Map<string, number>();
   let viewTotal = 0;
+  let staySeconds = 0;
+  let stayCount = 0;
   for (const row of views) {
     viewTotal += row.count;
     byPath.set(row.path, (byPath.get(row.path) || 0) + row.count);
     viewsByDay.set(row.day, (viewsByDay.get(row.day) || 0) + row.count);
+    const seconds = Number(row.seconds || 0);
+    const stays = Number(row.stays || 0);
+    if (stays > 0) {
+      secondsByPath.set(row.path, (secondsByPath.get(row.path) || 0) + seconds);
+      staysByPath.set(row.path, (staysByPath.get(row.path) || 0) + stays);
+      staySeconds += seconds;
+      stayCount += stays;
+    }
+  }
+  for (const row of sources) {
+    sourceCounts.set(row.source, (sourceCounts.get(row.source) || 0) + row.count);
   }
   let paidTotal = 0;
   let paidCount = 0;
@@ -136,8 +187,19 @@ export async function trafficSummary(app: string) {
   const days = new Set([...viewsByDay.keys(), ...paidByDay.keys()]);
   return {
     views: viewTotal,
+    average_stay_seconds: stayCount ? Math.round(staySeconds / stayCount) : 0,
+    sources: [...sourceCounts.entries()]
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count),
     top_paths: [...byPath.entries()]
-      .map(([path, count]) => ({ path, count }))
+      .map(([path, count]) => {
+        const stays = staysByPath.get(path) || 0;
+        return {
+          path,
+          count,
+          stay_seconds: stays ? Math.round((secondsByPath.get(path) || 0) / stays) : 0,
+        };
+      })
       .sort((a, b) => b.count - a.count)
       .slice(0, 8),
     paid_total: paidTotal.toFixed(2),

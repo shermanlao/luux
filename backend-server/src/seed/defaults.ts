@@ -210,6 +210,26 @@ export async function ensureProductVendorColumns(): Promise<void> {
   }
 }
 
+export async function ensureTrafficColumns(): Promise<void> {
+  const queryInterface = sequelize.getQueryInterface();
+  const table = await queryInterface.describeTable('page_views').catch(() => null);
+  if (!table) return;
+  if (!table.seconds) {
+    await queryInterface.addColumn('page_views', 'seconds', {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    });
+  }
+  if (!table.stays) {
+    await queryInterface.addColumn('page_views', 'stays', {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    });
+  }
+}
+
 export async function ensureCustomerOAuthColumns(): Promise<void> {
   const queryInterface = sequelize.getQueryInterface();
   const table = await queryInterface.describeTable('customers').catch(() => null);

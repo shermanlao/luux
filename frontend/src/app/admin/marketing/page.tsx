@@ -25,13 +25,24 @@ type Draft = {
 
 type Overview = {
   views: number;
-  top_paths: Array<{ path: string; count: number }>;
+  average_stay_seconds: number;
+  sources: Array<{ source: string; count: number }>;
+  top_paths: Array<{ path: string; count: number; stay_seconds: number }>;
   paid_total: string;
   paid_count: number;
   daily: Array<{ day: string; views: number; paid_total: string }>;
   connected: Record<Channel, boolean>;
   campaigns: Array<{ analysis: Analysis; campaigns: Array<Omit<Draft, 'analysis'>> }>;
 };
+
+function formatStay(seconds: number): string {
+  if (!seconds) return 'Not yet';
+  const mins = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  if (mins <= 0) return `${rest} sec`;
+  if (!rest) return `${mins} min`;
+  return `${mins} min ${rest} sec`;
+}
 
 function cardsFrom(overview: Overview): Draft[] {
   return overview.campaigns.flatMap((document) =>
@@ -41,6 +52,8 @@ function cardsFrom(overview: Overview): Draft[] {
 
 export default function AdminMarketingPage() {
   const [views, setViews] = useState(0);
+  const [averageStay, setAverageStay] = useState(0);
+  const [sources, setSources] = useState<Overview['sources']>([]);
   const [paidTotal, setPaidTotal] = useState('0.00');
   const [paidCount, setPaidCount] = useState(0);
   const [topPaths, setTopPaths] = useState<Overview['top_paths']>([]);
@@ -58,6 +71,8 @@ export default function AdminMarketingPage() {
       .then((res) => res.json())
       .then((data: Overview) => {
         setViews(data.views || 0);
+        setAverageStay(data.average_stay_seconds || 0);
+        setSources(data.sources || []);
         setPaidTotal(data.paid_total || '0.00');
         setPaidCount(data.paid_count || 0);
         setTopPaths(data.top_paths || []);
@@ -157,11 +172,15 @@ export default function AdminMarketingPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <AdminPageHeader title="Marketing" />
-      <p className="text-sm text-gray-600">Last 30 days. Page counts are anonymous. Nothing posts until you confirm.</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <p className="text-sm text-gray-600">Last 30 days. Page counts, sources, and time on a page are anonymous. Nothing posts until you confirm.</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded border border-gray-200 p-3">
           <p className="text-sm text-gray-500">Page views</p>
           <p className="text-2xl">{views}</p>
+        </div>
+        <div className="rounded border border-gray-200 p-3">
+          <p className="text-sm text-gray-500">Average stay</p>
+          <p className="text-2xl">{formatStay(averageStay)}</p>
         </div>
         <div className="rounded border border-gray-200 p-3">
           <p className="text-sm text-gray-500">Paid orders</p>
@@ -172,12 +191,29 @@ export default function AdminMarketingPage() {
           <p className="text-2xl">{paidTotal}</p>
         </div>
       </div>
+      <h2 className="mt-6 text-sm font-medium">Where they came from</h2>
+      <p className="mt-1 text-sm text-gray-500">A visit from another site, or someone who typed the address. Moving between LUUX pages is not a new source. Earlier views are not included.</p>
+      {sources.length ? (
+        <ul className="mt-2 space-y-1 text-sm">
+          {sources.map((row) => (
+            <li key={row.source} className="flex justify-between gap-4">
+              <span>{row.source}</span>
+              <span>{row.count}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm text-gray-500">No sources yet.</p>
+      )}
       {topPaths.length ? (
         <ul className="mt-4 space-y-1 text-sm">
           {topPaths.map((row) => (
             <li key={row.path} className="flex justify-between gap-4">
               <span>{row.path}</span>
-              <span>{row.count}</span>
+              <span>
+                {row.count}
+                {row.stay_seconds ? ` · ${formatStay(row.stay_seconds)}` : ''}
+              </span>
             </li>
           ))}
         </ul>

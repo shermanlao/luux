@@ -29,7 +29,7 @@ The same campaign document is what another app receives from the HTTP API.
 
 ## Traffic
 
-A storefront beacon posts the path to `POST /api/traffic`. Counts live in `page_views` (`app`, `path`, `day`, `count`). There is no new cookie and no IP in that table. Admin paths are skipped. Paid and fulfilled orders are summed by day for the LUUX overview.
+A storefront beacon posts the path to `POST /api/traffic`. Counts live in `page_views` (`app`, `path`, `day`, `count`). The same request can include a source label: Direct, Google, Instagram, Facebook, Threads, Pinterest, Bing, Yahoo, or Other. Those totals live in `traffic_sources`. A second beacon sends how many seconds the page stayed open, up to 30 minutes, and Marketing shows the average. There is no new cookie and no IP in those tables. A link with `utm_source` uses that label. A click from LUUX to another LUUX page does not add a source. Admin paths are skipped. Paid and fulfilled orders are summed by day for the LUUX overview. Views recorded before this change have no source and no stay time.
 
 ## Staff routes
 
@@ -37,7 +37,7 @@ Staff use the admin cookie. `app` defaults to `luux`.
 
 | Method | Path | Use |
 | --- | --- | --- |
-| GET | `/api/marketing/v1/overview` | Views, top paths, paid totals, connected channels, saved campaigns |
+| GET | `/api/marketing/v1/overview` | Views, sources, average stay, top paths, paid totals, connected channels, saved campaigns |
 | POST | `/api/marketing/v1/drafts` | Draft from shop data when `catalog` is omitted |
 | PUT | `/api/marketing/v1/drafts/:id` | Edit caption, image, link, and channels while it is not posted |
 | POST | `/api/marketing/v1/drafts/:id/publish` | Post the selected channels |

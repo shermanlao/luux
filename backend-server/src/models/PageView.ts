@@ -7,6 +7,8 @@ class PageView extends Model {
   declare path: string;
   declare day: string;
   declare count: number;
+  declare seconds: number;
+  declare stays: number;
 }
 
 PageView.init(
@@ -16,6 +18,8 @@ PageView.init(
     path: { type: DataTypes.STRING, allowNull: false },
     day: { type: DataTypes.STRING, allowNull: false },
     count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    seconds: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    stays: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   },
   {
     sequelize,
