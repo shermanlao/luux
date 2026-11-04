@@ -25,7 +25,7 @@ Paste the `whsec_...` value into Webhook secret on Integrations, or into `STRIPE
 
 ## Production
 
-Use **live** keys on the VPS. `SITE_ORIGIN` must be `https://luuxmart.com` so Stripe return URLs and the login cookie stay on HTTPS. Nginx sends `/api/stripe/webhook` to the Express process (see [vps.md](vps.md)). The live endpoint is:
+Use **live** keys on the VPS. Save them at https://luuxmart.com/admin/integrations. They are stored in the VPS Postgres database. Deploy updates the code only, so keys saved on this computer stay there until they are saved again on the live site. `SITE_ORIGIN` must be `https://luuxmart.com` so Stripe return URLs and the login cookie stay on HTTPS. Nginx sends `/api/stripe/webhook` to the Express process (see [vps.md](vps.md)). The live endpoint is:
 
 `https://luuxmart.com/api/stripe/webhook`
 

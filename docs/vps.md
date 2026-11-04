@@ -187,6 +187,6 @@ sudo install -m 755 /var/www/luux/scripts/luux-deploy.sh /usr/local/sbin/luux-de
 sudo /usr/local/sbin/luux-deploy
 ```
 
-That script only updates `/var/www/luux`. After the first deploy, run `npm run import:shopify` once on the server (or copy `database.sqlite` / run the importer against Postgres) so product photos exist under `frontend/public/uploads`.
+That script only updates `/var/www/luux`. It does not copy Integrations keys. AI and Stripe values saved on this computer stay in local SQLite. Save the same keys again at https://luuxmart.com/admin/integrations so they are stored in Postgres. After the first deploy, run `npm run import:shopify` once on the server (or copy `database.sqlite` / run the importer against Postgres) so product photos exist under `frontend/public/uploads`.
 
 Cancel Shopify only after a test card payment and the storefront look correct on https://luuxmart.com.

@@ -3,6 +3,7 @@ import { readAdminSession, readCustomerSession } from './cookies';
 
 export function requireAdmin() {
   return async (req: Request, res: Response, next: NextFunction) => {
+    res.set('Cache-Control', 'private, no-store');
     const session = await readAdminSession(req);
     if (!session) {
       res.status(401).json({ error: 'Sign in required' });
