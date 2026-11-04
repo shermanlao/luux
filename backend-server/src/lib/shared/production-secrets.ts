@@ -1,5 +1,5 @@
 export const DEFAULT_SESSION_SECRET = 'luux-dev-admin-session';
-export const DEFAULT_ADMIN_PASSWORD = 'abc4321';
+export const DEFAULT_ADMIN_PASSWORD = 'j75gUyq2LwbspHL';
 
 export function isProductionEnv(nodeEnv = process.env.NODE_ENV): boolean {
   return nodeEnv === 'production';

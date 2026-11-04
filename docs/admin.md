@@ -6,7 +6,7 @@ Staff routes under `/admin` require a signed-in session. Logins are rows in `adm
 
 1. Start `npm run dev` from the repo root.
 2. Open http://localhost:3000/admin or the shop sign-in at http://localhost:3000/account.
-3. First boot: email `admin@luux.local` and password `abc4321` (or `ADMIN_EMAIL` / `ADMIN_PASSWORD` if those were set when the users table was empty). Signing in on `/account` with that staff email opens `/admin`.
+3. First boot: email `hello@luuxmart.com` and password `j75gUyq2LwbspHL` (or `ADMIN_EMAIL` / `ADMIN_PASSWORD` if those were set when the users table was empty). Signing in on `/account` with that staff email opens `/admin`.
 
 The session is an httpOnly cookie (`luux_admin_session`) signed with `ADMIN_SESSION_SECRET`. Next.js middleware blocks `/admin` except `/admin/login`.
 

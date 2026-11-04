@@ -129,7 +129,7 @@ export async function upsertHelpTips(): Promise<void> {
 export async function ensureDefaultAdmin(): Promise<void> {
   const count = await AdminUser.count();
   if (count > 0) return;
-  const email = String(process.env.ADMIN_EMAIL || 'admin@luux.local').trim().toLowerCase();
+  const email = String(process.env.ADMIN_EMAIL || 'hello@luuxmart.com').trim().toLowerCase();
   const password = String(process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD);
   await AdminUser.create({
     username: 'admin',
