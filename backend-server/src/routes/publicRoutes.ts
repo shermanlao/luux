@@ -15,7 +15,9 @@ import Product from '../models/Product';
 import ShippingRate from '../models/ShippingRate';
 import SiteSetting from '../models/SiteSetting';
 import { recordTraffic } from '../lib/marketingLuux';
+import { productSearchOperator, productSearchPattern } from '../lib/shared/product-search';
 import { countryFromIp, visitorIp } from '../lib/visitorCountry';
+import { dbDialect } from '../database';
 import Currency from '../models/Currency';
 
 const router = Router();
@@ -154,21 +156,26 @@ router.get(
   '/search',
   asyncHandler(async (req, res) => {
     const q = String(req.query.q || '').trim();
-    if (!q) {
-      res.json({ products: [] });
+    const pattern = productSearchPattern(q);
+    if (!pattern) {
+      res.json({ products: [], q });
       return;
     }
+    const contains = productSearchOperator(dbDialect);
     const products = await Product.findAll({
       where: {
         published: true,
         [Op.or]: [
-          { title: { [Op.like]: `%${q}%` } },
-          { body_html: { [Op.like]: `%${q}%` } },
-          { tags: { [Op.like]: `%${q}%` } },
+          { title: { [contains]: pattern } },
+          { handle: { [contains]: pattern } },
+          { body_html: { [contains]: pattern } },
+          { tags: { [contains]: pattern } },
+          { product_type: { [contains]: pattern } },
         ],
       },
       include: PRODUCT_INCLUDE,
-      limit: 48,
+      order: [['title', 'ASC']],
+      limit: 200,
     });
     res.json({ products: products.map((product) => serializeProduct(product)), q });
   })
