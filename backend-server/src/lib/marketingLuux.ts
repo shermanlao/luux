@@ -5,6 +5,7 @@ import { isChannel } from './marketing/types';
 import Order from '../models/Order';
 import PageView from '../models/PageView';
 import TrafficSource from '../models/TrafficSource';
+import TrafficCountry from '../models/TrafficCountry';
 import Product from '../models/Product';
 import ProductImage from '../models/ProductImage';
 import SiteSetting from '../models/SiteSetting';
@@ -18,6 +19,12 @@ export function normalizeSource(value: unknown): string {
   const source = String(value || '').trim();
   if (!SOURCES.has(source)) return '';
   return source;
+}
+
+export function normalizeCountry(value: unknown): string {
+  const country = String(value || '').trim().slice(0, 80);
+  if (!/^[\p{L}\p{M} .,'()-]+$/u.test(country)) return '';
+  return country;
 }
 
 function dayStamp(date: Date): string {
@@ -56,7 +63,10 @@ export async function recordPageView(path: string, app = LUUX_APP): Promise<void
   await row.save();
 }
 
-export async function recordTraffic(input: { path: string; source?: string; seconds?: number }, app = LUUX_APP): Promise<void> {
+export async function recordTraffic(
+  input: { path: string; source?: string; country?: string; seconds?: number },
+  app = LUUX_APP
+): Promise<void> {
   const day = dayStamp(new Date());
   const seconds = Number(input.seconds);
   if (Number.isFinite(seconds) && seconds >= 1) {
@@ -72,13 +82,23 @@ export async function recordTraffic(input: { path: string; source?: string; seco
   }
   await recordPageView(input.path, app);
   const source = normalizeSource(input.source);
-  if (!source) return;
-  const [row] = await TrafficSource.findOrCreate({
-    where: { app, source, day },
-    defaults: { app, source, day, count: 0 },
-  });
-  row.count += 1;
-  await row.save();
+  if (source) {
+    const [row] = await TrafficSource.findOrCreate({
+      where: { app, source, day },
+      defaults: { app, source, day, count: 0 },
+    });
+    row.count += 1;
+    await row.save();
+  }
+  const country = normalizeCountry(input.country);
+  if (country) {
+    const [row] = await TrafficCountry.findOrCreate({
+      where: { app, country, day },
+      defaults: { app, country, day, count: 0 },
+    });
+    row.count += 1;
+    await row.save();
+  }
 }
 
 export async function luuxMarketingInput(): Promise<MarketingInput> {
@@ -144,11 +164,13 @@ export async function trafficSummary(app: string) {
   const sinceDay = dayStamp(since);
   const views = await PageView.findAll({ where: { app, day: { [Op.gte]: sinceDay } } });
   const sources = await TrafficSource.findAll({ where: { app, day: { [Op.gte]: sinceDay } } });
+  const countries = await TrafficCountry.findAll({ where: { app, day: { [Op.gte]: sinceDay } } });
   const byPath = new Map<string, number>();
   const secondsByPath = new Map<string, number>();
   const staysByPath = new Map<string, number>();
   const viewsByDay = new Map<string, number>();
   const sourceCounts = new Map<string, number>();
+  const countryCounts = new Map<string, number>();
   let viewTotal = 0;
   let staySeconds = 0;
   let stayCount = 0;
@@ -167,6 +189,9 @@ export async function trafficSummary(app: string) {
   }
   for (const row of sources) {
     sourceCounts.set(row.source, (sourceCounts.get(row.source) || 0) + row.count);
+  }
+  for (const row of countries) {
+    countryCounts.set(row.country, (countryCounts.get(row.country) || 0) + row.count);
   }
   let paidTotal = 0;
   let paidCount = 0;
@@ -190,6 +215,9 @@ export async function trafficSummary(app: string) {
     average_stay_seconds: stayCount ? Math.round(staySeconds / stayCount) : 0,
     sources: [...sourceCounts.entries()]
       .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count),
+    countries: [...countryCounts.entries()]
+      .map(([country, count]) => ({ country, count }))
       .sort((a, b) => b.count - a.count),
     top_paths: [...byPath.entries()]
       .map(([path, count]) => {

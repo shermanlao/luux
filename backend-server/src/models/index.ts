@@ -31,6 +31,7 @@ import SiteSetting from './SiteSetting';
 import Variant from './Variant';
 import PageView from './PageView';
 import TrafficSource from './TrafficSource';
+import TrafficCountry from './TrafficCountry';
 import MarketingCampaign from './MarketingCampaign';
 
 Product.hasMany(ProductImage, { foreignKey: 'product_id', as: 'images', onDelete: 'CASCADE' });
@@ -102,5 +103,6 @@ export {
   Variant,
   PageView,
   TrafficSource,
+  TrafficCountry,
   MarketingCampaign,
 };

@@ -32,17 +32,12 @@ function visitSource(): string {
 }
 
 function postTraffic(body: Record<string, unknown>, keepalive = false) {
-  const payload = JSON.stringify(body);
-  if (keepalive && typeof navigator.sendBeacon === 'function') {
-    const blob = new Blob([payload], { type: 'application/json' });
-    if (navigator.sendBeacon('/api/traffic', blob)) return;
-  }
   void fetch('/api/traffic', {
     method: 'POST',
     credentials: 'omit',
     keepalive,
     headers: { 'Content-Type': 'application/json' },
-    body: payload,
+    body: JSON.stringify(body),
   }).catch(() => undefined);
 }
 

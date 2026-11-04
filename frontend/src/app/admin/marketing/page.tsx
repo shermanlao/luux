@@ -26,6 +26,7 @@ type Draft = {
 type Overview = {
   views: number;
   average_stay_seconds: number;
+  countries: Array<{ country: string; count: number }>;
   sources: Array<{ source: string; count: number }>;
   top_paths: Array<{ path: string; count: number; stay_seconds: number }>;
   paid_total: string;
@@ -53,6 +54,7 @@ function cardsFrom(overview: Overview): Draft[] {
 export default function AdminMarketingPage() {
   const [views, setViews] = useState(0);
   const [averageStay, setAverageStay] = useState(0);
+  const [countries, setCountries] = useState<Overview['countries']>([]);
   const [sources, setSources] = useState<Overview['sources']>([]);
   const [paidTotal, setPaidTotal] = useState('0.00');
   const [paidCount, setPaidCount] = useState(0);
@@ -72,6 +74,7 @@ export default function AdminMarketingPage() {
       .then((data: Overview) => {
         setViews(data.views || 0);
         setAverageStay(data.average_stay_seconds || 0);
+        setCountries(data.countries || []);
         setSources(data.sources || []);
         setPaidTotal(data.paid_total || '0.00');
         setPaidCount(data.paid_count || 0);
@@ -172,7 +175,7 @@ export default function AdminMarketingPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <AdminPageHeader title="Marketing" />
-      <p className="text-sm text-gray-600">Last 30 days. Page counts, sources, and time on a page are anonymous. Nothing posts until you confirm.</p>
+      <p className="text-sm text-gray-600">Last 30 days. Country, source, and time on a page are anonymous. The address itself is not stored. Nothing posts until you confirm.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded border border-gray-200 p-3">
           <p className="text-sm text-gray-500">Page views</p>
@@ -191,6 +194,22 @@ export default function AdminMarketingPage() {
           <p className="text-2xl">{paidTotal}</p>
         </div>
       </div>
+      <h2 className="mt-6 text-sm font-medium">Country</h2>
+      <p className="mt-1 text-sm text-gray-500">Page views by country. Earlier views are not included.</p>
+      {countries.length ? (
+        <ul className="mt-2 space-y-1 text-sm">
+          {countries.map((row) => (
+            <li key={row.country} className="flex justify-between gap-4">
+              <span>{row.country}</span>
+              <span>{row.count}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm text-gray-500">No countries yet.</p>
+      )}
+      <h2 className="mt-6 text-sm font-medium">How long they stayed</h2>
+      <p className="mt-1 text-sm text-gray-500">Average time on a page, measured when someone leaves it. A tab left open counts at most 30 minutes. Average so far: {formatStay(averageStay)}.</p>
       <h2 className="mt-6 text-sm font-medium">Where they came from</h2>
       <p className="mt-1 text-sm text-gray-500">A visit from another site, or someone who typed the address. Moving between LUUX pages is not a new source. Earlier views are not included.</p>
       {sources.length ? (
@@ -206,17 +225,26 @@ export default function AdminMarketingPage() {
         <p className="mt-2 text-sm text-gray-500">No sources yet.</p>
       )}
       {topPaths.length ? (
-        <ul className="mt-4 space-y-1 text-sm">
-          {topPaths.map((row) => (
-            <li key={row.path} className="flex justify-between gap-4">
-              <span>{row.path}</span>
-              <span>
-                {row.count}
-                {row.stay_seconds ? ` · ${formatStay(row.stay_seconds)}` : ''}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="py-2 font-medium">Page</th>
+                <th className="py-2 font-medium">Views</th>
+                <th className="py-2 font-medium">Stay</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topPaths.map((row) => (
+                <tr key={row.path} className="border-b border-gray-100">
+                  <td className="py-2">{row.path}</td>
+                  <td className="py-2">{row.count}</td>
+                  <td className="py-2">{formatStay(row.stay_seconds)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <p className="mt-4 text-sm text-gray-500">No page views yet.</p>
       )}

@@ -15,6 +15,7 @@ import Product from '../models/Product';
 import ShippingRate from '../models/ShippingRate';
 import SiteSetting from '../models/SiteSetting';
 import { recordTraffic } from '../lib/marketingLuux';
+import { countryFromIp, visitorIp } from '../lib/visitorCountry';
 import Currency from '../models/Currency';
 
 const router = Router();
@@ -220,6 +221,7 @@ router.post(
     await recordTraffic({
       path,
       source: req.body?.source,
+      country: countryFromIp(visitorIp(req)),
       seconds: Number.isFinite(seconds) ? seconds : undefined,
     });
     res.json({ ok: true });
