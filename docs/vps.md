@@ -73,7 +73,10 @@ HOSTNAME=127.0.0.1
 API_ORIGIN=http://127.0.0.1:3334
 SITE_ORIGIN=https://luuxmart.com
 NEXT_PUBLIC_SITE_URL=https://luuxmart.com
+ADMIN_SESSION_SECRET=same-long-random-as-the-api
 ```
+
+`ADMIN_SESSION_SECRET` in `/etc/luux/next.env` must be the same value as in the API `.env`. The staff pages read that secret in production. If it is missing or still the local default, `/admin` returns 500 after sign-in.
 
 ## systemd
 
