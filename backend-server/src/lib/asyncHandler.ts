@@ -1,9 +1,34 @@
 import { Request, Response, NextFunction } from 'express';
+import { UniqueConstraintError, ValidationError } from 'sequelize';
 
 type ExpressHandler = (req: Request, res: Response, next?: NextFunction) => unknown;
 
+function fieldError(error: unknown): string {
+  if (!error || typeof error !== 'object') return '';
+  const named = error as {
+    name?: string;
+    errors?: Array<{ message?: string; path?: string; validatorKey?: string }>;
+  };
+  if (!named.name?.startsWith('Sequelize') || !Array.isArray(named.errors)) return '';
+  const lines = named.errors
+    .map((item) => {
+      const column = item.path || 'A field';
+      if (item.validatorKey === 'len') return `${column} is too long.`;
+      if (item.validatorKey === 'not_unique' || String(item.message || '').includes('must be unique')) {
+        return `${column} is already used.`;
+      }
+      const message = String(item.message || '').trim();
+      if (!message || message === 'Validation error') return '';
+      return message;
+    })
+    .filter(Boolean);
+  return lines.join(' ');
+}
+
 export function clientError(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message;
+  const fields = fieldError(error);
+  if (fields) return fields;
+  if (error instanceof Error && error.message && error.message !== 'Validation error') return error.message;
   return 'Something went wrong';
 }
 
@@ -14,7 +39,8 @@ export function asyncHandler(fn: ExpressHandler) {
         next?.(error);
         return;
       }
-      res.status(500).json({ error: clientError(error) });
+      const status = error instanceof UniqueConstraintError ? 409 : error instanceof ValidationError ? 400 : 500;
+      res.status(status).json({ error: clientError(error) });
     });
   };
 }

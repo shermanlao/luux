@@ -15,6 +15,7 @@ import adminCatalogRoutes from './routes/adminCatalogRoutes';
 import adminContentRoutes from './routes/adminContentRoutes';
 import adminOrderRoutes from './routes/adminOrderRoutes';
 import uploadRoutes from './routes/uploadRoutes';
+import marketingRoutes from './routes/marketingRoutes';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3333);
@@ -39,7 +40,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req,
   void stripeWebhook(req, res);
 });
 
-app.use(express.json({ limit: '8mb' }));
+app.use(express.json({ limit: '16mb' }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 app.use('/uploads', express.static(uploadsRoot));
 
@@ -51,6 +52,7 @@ app.use('/api/admin', adminCatalogRoutes);
 app.use('/api/admin', adminContentRoutes);
 app.use('/api/admin', adminOrderRoutes);
 app.use('/api/admin/upload', uploadRoutes);
+app.use('/api/marketing', marketingRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, name: 'luux-api' });

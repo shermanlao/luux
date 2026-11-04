@@ -3,8 +3,11 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import CookieBar from '@/components/layout/CookieBar';
+import TrafficBeacon from '@/components/layout/TrafficBeacon';
 import SaveNotice from '@/components/ui/SaveNotice';
 import { CartProvider } from '@/lib/cart';
+import { CurrencyProvider } from '@/lib/currency';
 import { loadSite, siteOrigin } from '@/lib/api';
 import type { SitePayload } from '@/lib/types';
 
@@ -13,10 +16,10 @@ const inter = Inter({ subsets: ['latin'] });
 const fallbackSite: SitePayload = {
   site: {
     company_name: 'LUUX',
-    slogan: '',
+    slogan: 'Shop our latest arrivals.',
     hero_heading: 'Illuminate your space',
     hero_subheading: 'Embrace elegance through modern lighting design.',
-    hero_image: '',
+    hero_image: '/uploads/site/hero.jpg',
     hero_cta_label: 'Shop now',
     hero_cta_href: '/collections/pendant',
     featured_heading: 'Featured products',
@@ -37,7 +40,10 @@ const fallbackSite: SitePayload = {
     pinterest_url: '',
     seo_title: 'LUUX',
     seo_description: 'Modern lighting for living spaces.',
-    logo_icon: '/images/luux-mark.svg',
+    logo: '/images/luux-logo.jpg',
+    logo_icon: '/images/luux-mark.jpg',
+    cookie_notice:
+      'We use a login cookie and keep your cart in this browser. We do not use advertising cookies. Allow or Reject is remembered for this network.',
   },
   collections: [],
 };
@@ -51,7 +57,7 @@ export async function generateMetadata(): Promise<Metadata> {
   }
   return {
     metadataBase: new URL(siteOrigin()),
-    title: { default: payload.site.seo_title || 'LUUX', template: `%s | ${payload.site.company_name}` },
+    title: { default: payload.site.seo_title || 'LUUX', template: `%s – ${payload.site.company_name}` },
     description: payload.site.seo_description,
     icons: payload.site.logo_icon ? { icon: payload.site.logo_icon } : undefined,
   };
@@ -67,13 +73,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <CartProvider>
-          <Header collections={payload.collections} />
-          <main className="min-h-[70vh]">{children}</main>
-          <Footer site={payload.site} />
-          <SaveNotice />
-        </CartProvider>
+      <body className={`${inter.className} bg-white text-[#12080c]`}>
+        <CurrencyProvider>
+          <CartProvider>
+            <Header collections={payload.collections} logo={payload.site.logo} />
+            {payload.site.slogan ? (
+              <p className="bg-[#e1e1e1] px-4 py-3 text-center text-sm">{payload.site.slogan}</p>
+            ) : null}
+            <main className="min-h-[70vh] min-w-0 overflow-x-clip">{children}</main>
+            <Footer site={payload.site} />
+            <CookieBar />
+            <TrafficBeacon />
+            <SaveNotice />
+          </CartProvider>
+        </CurrencyProvider>
       </body>
     </html>
   );

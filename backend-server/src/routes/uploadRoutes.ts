@@ -12,7 +12,10 @@ ensureDir(dest);
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, dest),
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+    const allowed = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif']);
+    const ext = allowed.has(path.extname(file.originalname || '').toLowerCase())
+      ? path.extname(file.originalname || '').toLowerCase()
+      : '.jpg';
     cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
   },
 });

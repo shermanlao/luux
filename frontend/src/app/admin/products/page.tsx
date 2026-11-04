@@ -1,74 +1,157 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import AdminNav from '@/components/admin/AdminNav';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import { HelpLink, useHelpTip } from '@/components/admin/HelpButton';
 import AdminTable from '@/components/ui/AdminTable';
 import Button from '@/components/ui/Button';
-import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { formatHkd } from '@shared/slugify';
-import type { Product } from '@/lib/types';
+import type { AdminTableColumn } from '@/components/ui/AdminTable';
+import type { Collection, Product } from '@/lib/types';
+
+type SortKey = 'title' | 'price' | 'variants';
+type SortDir = 'asc' | 'desc';
+
+function compareProducts(a: Product, b: Product, key: SortKey) {
+  if (key === 'title') return a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true });
+  if (key === 'price') return Number(a.price) - Number(b.price);
+  return a.variants.length - b.variants.length;
+}
 
 export default function AdminProductsPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [collectionId, setCollectionId] = useState('');
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
-
-  async function load() {
-    setLoading(true);
-    const data = await fetch('/api/admin/products').then((res) => res.json());
-    setProducts(data.products || []);
-    setLoading(false);
-  }
+  const collectionTip = useHelpTip('admin.product.filter_collection');
+  const searchTip = useHelpTip('admin.product.search');
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
 
   useEffect(() => {
-    load().catch(() => setLoading(false));
+    let cancelled = false;
+    Promise.all([
+      fetch('/api/admin/products').then((res) => res.json()).catch(() => ({ products: [] })),
+      fetch('/api/admin/collections').then((res) => res.json()).catch(() => ({ collections: [] })),
+    ])
+      .then(([productData, collectionData]) => {
+        if (cancelled) return;
+        setProducts(productData.products || []);
+        setCollections(collectionData.collections || []);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const rows = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const filtered = products.filter((product) => {
+      if (collectionId && !product.collections.some((collection) => String(collection.id) === collectionId)) return false;
+      if (needle && !product.title.toLowerCase().includes(needle)) return false;
+      return true;
+    });
+    if (!sort) return filtered;
+    return [...filtered].sort((a, b) => {
+      const delta = compareProducts(a, b, sort.key);
+      if (delta !== 0) return sort.dir === 'asc' ? delta : -delta;
+      return b.id - a.id;
+    });
+  }, [collectionId, products, query, sort]);
+
+  function toggleSort(key: SortKey) {
+    setSort((current) => {
+      if (!current || current.key !== key) return { key, dir: 'asc' };
+      return { key, dir: current.dir === 'asc' ? 'desc' : 'asc' };
+    });
+  }
+
+  function sortColumn(id: SortKey, label: string, helpKey: string): AdminTableColumn {
+    return {
+      id,
+      label,
+      helpKey,
+      sorted: sort?.key === id ? sort.dir : undefined,
+      onSort: () => toggleSort(id),
+    };
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <AdminPageHeader
         title="Products"
         actions={
-          <Button helpKey="admin.product.new" href="/admin/products/new">
-            Add product
-          </Button>
+          <>
+            <input
+              className="input-field w-56"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search products"
+              aria-label="Search products"
+              data-help-key="admin.product.search"
+              title={searchTip || undefined}
+            />
+            <select
+              className="select-field w-44"
+              value={collectionId}
+              onChange={(event) => setCollectionId(event.target.value)}
+              aria-label="Collection"
+              data-help-key="admin.product.filter_collection"
+              title={collectionTip || undefined}
+            >
+              <option value="">All collections</option>
+              {collections.map((collection) => (
+                <option key={collection.id} value={collection.id}>
+                  {collection.title}
+                </option>
+              ))}
+            </select>
+            <Button helpKey="admin.product.new" href="/admin/products/new">
+              Add product
+            </Button>
+          </>
         }
       />
-      <AdminNav />
-      <AdminTable columns={['Product', 'Price', 'Variants', '']} loading={loading} empty={!products.length}>
-        {products.map((product) => (
-          <tr key={product.id}>
-            <td className="px-6 py-3">{product.title}</td>
-            <td className="px-6 py-3">{formatHkd(product.price)}</td>
-            <td className="px-6 py-3">{product.variants.length}</td>
-            <td className="px-6 py-3">
-              <div className="flex gap-2">
-                <Button helpKey="admin.product.edit" variant="secondary" href={`/admin/products/${product.id}`}>
-                  Edit
-                </Button>
-                <Button helpKey="admin.product.delete" variant="danger" onClick={() => setDeleteId(product.id)}>
-                  Delete
-                </Button>
-              </div>
-            </td>
-          </tr>
-        ))}
+      <AdminTable
+        columns={[
+          sortColumn('title', 'Product', 'admin.product.sort_title'),
+          sortColumn('price', 'Price', 'admin.product.sort_price'),
+          sortColumn('variants', 'Variants', 'admin.product.sort_variants'),
+        ]}
+        loading={loading}
+        empty={!rows.length}
+      >
+        {rows.map((product) => {
+          const href = `/admin/products/${product.id}`;
+          const photo = product.images[0]?.src;
+          return (
+            <tr
+              key={product.id}
+              className="cursor-pointer hover:bg-gray-50"
+              onClick={() => router.push(href)}
+            >
+              <td className="px-6 py-3">
+                <HelpLink helpKey="admin.product.edit" href={href} className="flex items-center gap-3">
+                  {photo ? (
+                    <img src={photo} alt="" className="h-12 w-12 rounded object-cover" />
+                  ) : (
+                    <span className="h-12 w-12 rounded bg-gray-100" />
+                  )}
+                  <span>{product.title}</span>
+                </HelpLink>
+              </td>
+              <td className="px-6 py-3">{formatHkd(product.price)}</td>
+              <td className="px-6 py-3">{product.variants.length}</td>
+            </tr>
+          );
+        })}
       </AdminTable>
-      <ConfirmDialog
-        open={deleteId != null}
-        title="Delete product"
-        message="This lamp will be removed from the shop."
-        confirmHelpKey="admin.confirm.delete"
-        cancelHelpKey="admin.confirm.cancel"
-        onCancel={() => setDeleteId(null)}
-        onConfirm={async () => {
-          if (deleteId == null) return;
-          await fetch(`/api/admin/products/${deleteId}`, { method: 'DELETE' });
-          setDeleteId(null);
-          await load();
-        }}
-      />
     </div>
   );
 }

@@ -20,6 +20,8 @@ export type Product = {
   handle: string;
   body_html: string;
   vendor: string;
+  vendor_url?: string;
+  vendor_contact?: string;
   product_type: string;
   tags: string;
   published: boolean;
@@ -76,7 +78,9 @@ export type SiteSettings = {
   pinterest_url: string;
   seo_title: string;
   seo_description: string;
+  logo: string;
   logo_icon: string;
+  cookie_notice: string;
 };
 
 export type SitePayload = { site: SiteSettings; collections: Collection[] };

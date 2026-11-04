@@ -4,7 +4,7 @@ type Bucket = { count: number; resetAt: number };
 
 const buckets = new Map<string, Bucket>();
 
-function clientIp(req: Request): string {
+export function clientIp(req: Request): string {
   const realIp = req.headers['x-real-ip'];
   if (typeof realIp === 'string' && realIp.trim()) return realIp.trim();
   return req.ip || req.socket.remoteAddress || 'unknown';

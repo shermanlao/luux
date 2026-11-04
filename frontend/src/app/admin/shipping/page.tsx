@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import AdminNav from '@/components/admin/AdminNav';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -34,7 +33,6 @@ export default function AdminShippingPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <AdminPageHeader title="Shipping" />
-      <AdminNav />
       <div className="space-y-4">
         {rates.map((rate, index) => (
           <Card key={rate.id}>

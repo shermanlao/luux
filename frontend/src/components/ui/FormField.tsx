@@ -1,6 +1,9 @@
-import { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ReactNode } from 'react';
+'use client';
 
-type Common = { label: string; hint?: ReactNode; className?: string };
+import { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ReactNode } from 'react';
+import { useHelpTip } from '@/components/admin/HelpButton';
+
+type Common = { label: string; hint?: ReactNode; className?: string; helpKey?: string };
 
 export function FormField({ label, hint, children, className = '' }: Common & { children: ReactNode }) {
   return (
@@ -12,10 +15,11 @@ export function FormField({ label, hint, children, className = '' }: Common & { 
   );
 }
 
-export function TextInput({ label, hint, className = '', ...props }: Common & InputHTMLAttributes<HTMLInputElement>) {
+export function TextInput({ label, hint, className = '', helpKey, title, ...props }: Common & InputHTMLAttributes<HTMLInputElement>) {
+  const tip = useHelpTip(helpKey || 'admin.product.save');
   return (
     <FormField label={label} hint={hint} className={className}>
-      <input className="input-field" {...props} />
+      <input className="input-field" data-help-key={helpKey || undefined} title={helpKey ? tip || title : title} {...props} />
     </FormField>
   );
 }
@@ -40,11 +44,14 @@ export function TextareaField({
   label,
   hint,
   className = '',
+  helpKey,
+  title,
   ...props
 }: Common & TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const tip = useHelpTip(helpKey || 'admin.product.save');
   return (
     <FormField label={label} hint={hint} className={className}>
-      <textarea className="input-field" {...props} />
+      <textarea className="input-field" data-help-key={helpKey || undefined} title={helpKey ? tip || title : title} {...props} />
     </FormField>
   );
 }

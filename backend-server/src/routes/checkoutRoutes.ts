@@ -3,7 +3,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { readCustomerSession } from '../lib/cookies';
 import { nextOrderNumber } from '../lib/orderNumber';
 import { rateLimit } from '../lib/rateLimit';
-import { serializeOrder } from '../lib/serialize';
+import { shippingMatchesCountry } from '../lib/shared/shipping';
 import { hkdToCents } from '../lib/shared/slugify';
 import { getStripe, siteOrigin } from '../lib/stripe';
 import Order from '../models/Order';
@@ -50,8 +50,20 @@ router.post(
       return;
     }
     const email = String(body.email || '').trim().toLowerCase();
-    if (!email.includes('@')) {
+    const shippingName = String(body.shipping_name || '').trim();
+    const shippingLine1 = String(body.shipping_line1 || '').trim();
+    const shippingCity = String(body.shipping_city || '').trim();
+    const shippingCountry = String(body.shipping_country || '').trim().toUpperCase();
+    if (!email.includes('@') || email.length > 200) {
       res.status(400).json({ error: 'Enter a valid email address.' });
+      return;
+    }
+    if (!shippingName || !shippingLine1 || !shippingCity || !shippingCountry) {
+      res.status(400).json({ error: 'Enter the delivery name, address, and city.' });
+      return;
+    }
+    if (!shippingMatchesCountry(shipping.countries, shippingCountry)) {
+      res.status(400).json({ error: 'That shipping rate does not cover this country.' });
       return;
     }
     const subtotal = items.reduce((sum, item) => sum + hkdToCents(item.unit_price) * item.quantity, 0);
@@ -68,14 +80,14 @@ router.post(
       shipping_amount: shipping.amount,
       total: (totalCents / 100).toFixed(2),
       currency: 'HKD',
-      shipping_name: String(body.shipping_name || '').trim(),
-      shipping_phone: String(body.shipping_phone || '').trim(),
-      shipping_line1: String(body.shipping_line1 || '').trim(),
-      shipping_line2: String(body.shipping_line2 || '').trim(),
-      shipping_city: String(body.shipping_city || '').trim(),
-      shipping_region: String(body.shipping_region || '').trim(),
-      shipping_postal: String(body.shipping_postal || '').trim(),
-      shipping_country: String(body.shipping_country || '').trim(),
+      shipping_name: shippingName.slice(0, 120),
+      shipping_phone: String(body.shipping_phone || '').trim().slice(0, 40),
+      shipping_line1: shippingLine1.slice(0, 200),
+      shipping_line2: String(body.shipping_line2 || '').trim().slice(0, 200),
+      shipping_city: shippingCity.slice(0, 80),
+      shipping_region: String(body.shipping_region || '').trim().slice(0, 80),
+      shipping_postal: String(body.shipping_postal || '').trim().slice(0, 20),
+      shipping_country: shippingCountry.slice(0, 8),
       shipping_rate_name: shipping.name,
     });
 
@@ -93,8 +105,10 @@ router.post(
     );
 
     const origin = siteOrigin();
-    const stripe = getStripe();
-    const session = await stripe.checkout.sessions.create({
+    let session;
+    try {
+      const stripe = await getStripe();
+      session = await stripe.checkout.sessions.create({
       mode: 'payment',
       customer_email: email,
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -122,6 +136,14 @@ router.post(
         },
       ],
     });
+    } catch (error) {
+      order.status = 'cancelled';
+      await order.save();
+      const message = error instanceof Error ? error.message : 'Payment could not be started.';
+      console.error('Stripe checkout failed:', message);
+      res.status(502).json({ error: 'Payment could not be started. Try again.' });
+      return;
+    }
 
     order.stripe_session_id = session.id;
     await order.save();
@@ -132,15 +154,19 @@ router.post(
 router.get(
   '/session/:id',
   asyncHandler(async (req, res) => {
-    const order = await Order.findOne({
-      where: { stripe_session_id: req.params.id },
-      include: [{ model: OrderItem, as: 'items' }],
-    });
+    const order = await Order.findOne({ where: { stripe_session_id: req.params.id } });
     if (!order) {
       res.status(404).json({ error: 'Order not found' });
       return;
     }
-    res.json({ order: serializeOrder(order) });
+    res.json({
+      order: {
+        number: order.number,
+        total: order.total,
+        currency: order.currency,
+        status: order.status,
+      },
+    });
   })
 );
 

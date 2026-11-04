@@ -1,7 +1,6 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import AdminNav from '@/components/admin/AdminNav';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import Button from '@/components/ui/Button';
 import { TextInput, TextareaField } from '@/components/ui/FormField';
@@ -41,9 +40,9 @@ export default function AdminSettingsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <AdminPageHeader title="Settings" />
-      <AdminNav />
       <form onSubmit={save} className="space-y-4">
         <TextInput label="Company" value={site.company_name} onChange={(e) => set('company_name', e.target.value)} />
+        <TextInput label="Announcement" value={site.slogan} onChange={(e) => set('slogan', e.target.value)} />
         <TextInput label="Hero heading" value={site.hero_heading} onChange={(e) => set('hero_heading', e.target.value)} />
         <TextInput label="Hero subheading" value={site.hero_subheading} onChange={(e) => set('hero_subheading', e.target.value)} />
         <TextInput label="Hero image path" value={site.hero_image} onChange={(e) => set('hero_image', e.target.value)} />
@@ -63,8 +62,13 @@ export default function AdminSettingsPage() {
         <TextInput label="Address" value={site.contact_address} onChange={(e) => set('contact_address', e.target.value)} />
         <TextInput label="Facebook" value={site.facebook_url} onChange={(e) => set('facebook_url', e.target.value)} />
         <TextInput label="Instagram" value={site.instagram_url} onChange={(e) => set('instagram_url', e.target.value)} />
+        <TextInput label="Threads" helpKey="admin.settings.threads" value={site.threads_url} onChange={(e) => set('threads_url', e.target.value)} />
+        <TextInput label="Pinterest" helpKey="admin.settings.pinterest" value={site.pinterest_url} onChange={(e) => set('pinterest_url', e.target.value)} />
+        <TextInput label="Header logo" value={site.logo} onChange={(e) => set('logo', e.target.value)} />
+        <TextInput label="Browser icon" value={site.logo_icon} onChange={(e) => set('logo_icon', e.target.value)} />
         <TextInput label="SEO title" value={site.seo_title} onChange={(e) => set('seo_title', e.target.value)} />
         <TextareaField label="SEO description" rows={3} value={site.seo_description} onChange={(e) => set('seo_description', e.target.value)} />
+        <TextareaField label="Cookie notice" rows={3} value={site.cookie_notice} onChange={(e) => set('cookie_notice', e.target.value)} />
         <Button helpKey="admin.settings.save" type="submit">
           Save settings
         </Button>

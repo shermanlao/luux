@@ -39,6 +39,7 @@ router.post(
 router.get(
   '/me',
   asyncHandler(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
     const session = await readAdminSession(req);
     if (!session) {
       res.status(401).json({ error: 'Sign in required' });

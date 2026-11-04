@@ -27,7 +27,7 @@ export default function Footer({ site }: { site: SiteSettings }) {
 
   return (
     <footer className="mt-16 border-t border-gray-200 bg-white">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:grid-cols-3">
+      <div className="mx-auto grid w-full gap-10 px-6 py-12 md:grid-cols-3 md:px-10">
         <div>
           <p className="text-sm uppercase tracking-widest text-gray-500">{site.newsletter_heading}</p>
           <p className="mt-2 text-sm text-gray-600">{site.newsletter_body}</p>
@@ -47,7 +47,7 @@ export default function Footer({ site }: { site: SiteSettings }) {
           </form>
         </div>
         <div>
-          <img src="/images/luux-mark.svg" alt="LUUX" className="h-8 w-auto" />
+          <img src={site.logo_icon || '/images/luux-mark.jpg'} alt="LUUX" className="h-9 w-9 object-contain" />
           <p className="mt-4 text-sm text-gray-600">{site.contact_email}</p>
           <p className="text-sm text-gray-600">{site.contact_phone}</p>
         </div>
@@ -56,6 +56,9 @@ export default function Footer({ site }: { site: SiteSettings }) {
           <div className="flex flex-col gap-1">
             <HelpLink helpKey="nav.about" href="/policies/privacy-policy" className="text-gray-600 hover:underline">
               Privacy policy
+            </HelpLink>
+            <HelpLink helpKey="cookies.policy" href="/policies/cookie-policy" className="text-gray-600 hover:underline">
+              Cookie policy
             </HelpLink>
             <HelpLink helpKey="nav.about" href="/policies/refund-policy" className="text-gray-600 hover:underline">
               Refund policy

@@ -7,6 +7,8 @@ class Customer extends Model {
   declare password_hash: string;
   declare first_name: string;
   declare last_name: string;
+  declare google_sub: string;
+  declare facebook_id: string;
 }
 
 Customer.init(
@@ -16,6 +18,8 @@ Customer.init(
     password_hash: { type: DataTypes.STRING, allowNull: false },
     first_name: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     last_name: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    google_sub: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    facebook_id: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
   },
   { sequelize, modelName: 'Customer', tableName: 'customers' }
 );

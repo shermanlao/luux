@@ -5,11 +5,15 @@ import Button from '@/components/ui/Button';
 import AlertBanner from '@/components/ui/AlertBanner';
 import { TextInput, SelectField } from '@/components/ui/FormField';
 import { useCart } from '@/lib/cart';
+import { useCurrency } from '@/lib/currency';
 import type { ShippingRate } from '@/lib/types';
+import { shippingMatchesCountry } from '@shared/shipping';
 import { formatHkd } from '@shared/slugify';
+import { readShippingId, writeShippingId } from '@/lib/shippingChoice';
 
 export default function CheckoutPage() {
   const { lines, subtotal } = useCart();
+  const { code, format } = useCurrency();
   const [rates, setRates] = useState<ShippingRate[]>([]);
   const [shippingId, setShippingId] = useState<number | ''>('');
   const [error, setError] = useState<string | null>(null);
@@ -32,13 +36,29 @@ export default function CheckoutPage() {
       .then((data) => {
         const list = data.rates || [];
         setRates(list);
-        if (list[0]) setShippingId(list[0].id);
+        const saved = readShippingId();
+        const pick = list.find((row: ShippingRate) => row.id === saved) || list[0];
+        if (pick) setShippingId(pick.id);
       })
       .catch(() => setError('Could not load shipping rates.'));
   }, []);
 
-  const rate = rates.find((row) => row.id === shippingId);
+  const available = rates.filter((row) => shippingMatchesCountry(row.countries, form.shipping_country));
+  const rate = available.find((row) => row.id === shippingId);
   const total = subtotal + Number(rate?.amount || 0);
+
+  useEffect(() => {
+    if (!rates.length) return;
+    const nextRates = rates.filter((row) => shippingMatchesCountry(row.countries, form.shipping_country));
+    if (nextRates.some((row) => row.id === shippingId)) return;
+    const next = nextRates[0];
+    if (!next) {
+      setShippingId('');
+      return;
+    }
+    setShippingId(next.id);
+    writeShippingId(next.id);
+  }, [rates, form.shipping_country, shippingId]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -102,14 +122,23 @@ export default function CheckoutPage() {
           <option value="JP">Japan</option>
           <option value="OTHER">Other</option>
         </SelectField>
-        <SelectField label="Shipping" value={shippingId} onChange={(e) => setShippingId(Number(e.target.value))}>
-          {rates.map((row) => (
+        <SelectField
+          label="Shipping"
+          value={shippingId}
+          onChange={(e) => {
+            const id = Number(e.target.value);
+            setShippingId(id);
+            writeShippingId(id);
+          }}
+        >
+          {available.map((row) => (
             <option key={row.id} value={row.id}>
-              {row.name} — {formatHkd(row.amount)}
+              {row.name} — {format(row.amount)}
             </option>
           ))}
         </SelectField>
-        <Button helpKey="checkout.pay" type="submit" disabled={busy}>
+        {!available.length ? <AlertBanner>No shipping rate covers this country.</AlertBanner> : null}
+        <Button helpKey="checkout.pay" type="submit" disabled={busy || !rate}>
           {busy ? 'Redirecting…' : 'Pay with Stripe'}
         </Button>
       </form>
@@ -119,17 +148,20 @@ export default function CheckoutPage() {
             <span>
               {line.title} × {line.quantity}
             </span>
-            <span>{formatHkd(Number(line.price) * line.quantity)}</span>
+            <span>{format(Number(line.price) * line.quantity)}</span>
           </div>
         ))}
         <p className="mt-4 flex justify-between">
           <span>Shipping</span>
-          <span>{formatHkd(rate?.amount || 0)}</span>
+          <span>{format(rate?.amount || 0)}</span>
         </p>
         <p className="mt-2 flex justify-between text-lg font-medium">
           <span>Total</span>
-          <span>{formatHkd(total)}</span>
+          <span>{format(total)}</span>
         </p>
+        {code !== 'HKD' ? (
+          <p className="mt-3 text-xs text-gray-500">Card payment is collected in Hong Kong dollars ({formatHkd(total)}).</p>
+        ) : null}
       </aside>
     </div>
   );

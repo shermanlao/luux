@@ -5,28 +5,47 @@ import { useSearchParams } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import { useCart } from '@/lib/cart';
-import type { Order } from '@/lib/types';
 import { formatHkd } from '@shared/slugify';
 
 function SuccessBody() {
   const params = useSearchParams();
   const sessionId = params.get('session_id');
   const { clear } = useCart();
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<{ number: string; total: string; status: string } | null>(null);
 
   useEffect(() => {
     clear();
     if (!sessionId) return;
-    fetch(`/api/checkout/session/${sessionId}`)
-      .then((res) => res.json())
-      .then((data) => setOrder(data.order || null))
-      .catch(() => setOrder(null));
+    let stopped = false;
+    let attempts = 0;
+    async function load() {
+      const response = await fetch(`/api/checkout/session/${sessionId}`);
+      const data = await response.json().catch(() => ({}));
+      if (stopped) return;
+      const next = data.order || null;
+      setOrder(next);
+      if (next && next.status !== 'pending') return;
+      attempts += 1;
+      if (attempts < 5) window.setTimeout(load, 1500);
+    }
+    load().catch(() => {
+      if (!stopped) setOrder(null);
+    });
+    return () => {
+      stopped = true;
+    };
   }, [sessionId, clear]);
+
+  const recorded = order?.status === 'paid' || order?.status === 'fulfilled';
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
       <h1 className="text-3xl">Thank you</h1>
-      <p className="mt-3 text-gray-600">Your payment was received. A confirmation is on its way if email is configured.</p>
+      <p className="mt-3 text-gray-600">
+        {recorded
+          ? 'Your payment was received.'
+          : 'Stripe accepted the checkout. This page shows the order as paid when the shop records it.'}
+      </p>
       {order ? (
         <p className="mt-4">
           Order {order.number} — {formatHkd(order.total)} ({order.status})

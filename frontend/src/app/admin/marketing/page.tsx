@@ -1,0 +1,285 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import Button from '@/components/ui/Button';
+import { TextareaField, TextInput } from '@/components/ui/FormField';
+import { showSaveNotice } from '@/components/ui/SaveNotice';
+
+const CHANNELS = ['facebook', 'instagram', 'threads'] as const;
+type Channel = (typeof CHANNELS)[number];
+
+type Result = { channel: Channel; status: 'posted' | 'failed'; external_id: string; error: string };
+type Analysis = { summary: string; findings: string[] };
+type Draft = {
+  id: number;
+  status: 'draft' | 'posted' | 'failed';
+  caption: string;
+  image_url: string;
+  link: string;
+  channels: Channel[];
+  rationale: string;
+  results: Result[];
+  analysis: Analysis;
+};
+
+type Overview = {
+  views: number;
+  top_paths: Array<{ path: string; count: number }>;
+  paid_total: string;
+  paid_count: number;
+  daily: Array<{ day: string; views: number; paid_total: string }>;
+  connected: Record<Channel, boolean>;
+  campaigns: Array<{ analysis: Analysis; campaigns: Array<Omit<Draft, 'analysis'>> }>;
+};
+
+function cardsFrom(overview: Overview): Draft[] {
+  return overview.campaigns.flatMap((document) =>
+    document.campaigns.map((campaign) => ({ ...campaign, analysis: document.analysis }))
+  );
+}
+
+export default function AdminMarketingPage() {
+  const [views, setViews] = useState(0);
+  const [paidTotal, setPaidTotal] = useState('0.00');
+  const [paidCount, setPaidCount] = useState(0);
+  const [topPaths, setTopPaths] = useState<Overview['top_paths']>([]);
+  const [daily, setDaily] = useState<Overview['daily']>([]);
+  const [connected, setConnected] = useState<Record<Channel, boolean>>({
+    facebook: false,
+    instagram: false,
+    threads: false,
+  });
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [busy, setBusy] = useState('');
+
+  useEffect(() => {
+    fetch('/api/marketing/v1/overview')
+      .then((res) => res.json())
+      .then((data: Overview) => {
+        setViews(data.views || 0);
+        setPaidTotal(data.paid_total || '0.00');
+        setPaidCount(data.paid_count || 0);
+        setTopPaths(data.top_paths || []);
+        setDaily(data.daily || []);
+        setConnected(data.connected || { facebook: false, instagram: false, threads: false });
+        setDrafts(cardsFrom(data));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  function update(id: number, patch: Partial<Draft>) {
+    setDrafts((current) => current.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
+  }
+
+  async function ask() {
+    setBusy('ask');
+    const response = await fetch('/api/marketing/v1/drafts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ app: 'luux' }),
+    });
+    const data = await response.json().catch(() => ({}));
+    setBusy('');
+    if (!response.ok) {
+      showSaveNotice(data.error || 'Could not draft a campaign', 'error');
+      return;
+    }
+    const created = cardsFrom({ campaigns: [data] } as Overview);
+    setDrafts((current) => [...created, ...current]);
+    showSaveNotice('Draft ready');
+  }
+
+  async function save(draft: Draft) {
+    setBusy(`save-${draft.id}`);
+    const response = await fetch(`/api/marketing/v1/drafts/${draft.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        caption: draft.caption,
+        image_url: draft.image_url,
+        link: draft.link,
+        channels: draft.channels.filter((channel) => connected[channel]),
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    setBusy('');
+    if (!response.ok) {
+      showSaveNotice(data.error || 'Could not save the draft', 'error');
+      return;
+    }
+    const saved = cardsFrom({ campaigns: [data] } as Overview)[0];
+    if (saved) update(draft.id, saved);
+    showSaveNotice('Draft saved');
+  }
+
+  async function confirm(draft: Draft) {
+    setBusy(`post-${draft.id}`);
+    const response = await fetch(`/api/marketing/v1/drafts/${draft.id}/publish`, { method: 'POST' });
+    const data = await response.json().catch(() => ({}));
+    setBusy('');
+    if (!response.ok) {
+      showSaveNotice(data.error || 'Could not post', 'error');
+      return;
+    }
+    const posted = cardsFrom({ campaigns: [data] } as Overview)[0];
+    if (posted) update(draft.id, posted);
+    const failed = posted?.results.find((item) => item.status === 'failed');
+    showSaveNotice(failed ? failed.error || 'A channel did not post' : 'Posted', failed ? 'error' : 'success');
+  }
+
+  function exportDraft(draft: Draft) {
+    const document = {
+      app: 'luux',
+      analysis: draft.analysis,
+      campaigns: [
+        {
+          id: draft.id,
+          status: draft.status,
+          caption: draft.caption,
+          image_url: draft.image_url,
+          link: draft.link,
+          channels: draft.channels,
+          rationale: draft.rationale,
+          results: draft.results,
+        },
+      ],
+    };
+    const blob = new Blob([JSON.stringify(document, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = window.document.createElement('a');
+    link.href = url;
+    link.download = `campaign-${draft.id}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-10">
+      <AdminPageHeader title="Marketing" />
+      <p className="text-sm text-gray-600">Last 30 days. Page counts are anonymous. Nothing posts until you confirm.</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="rounded border border-gray-200 p-3">
+          <p className="text-sm text-gray-500">Page views</p>
+          <p className="text-2xl">{views}</p>
+        </div>
+        <div className="rounded border border-gray-200 p-3">
+          <p className="text-sm text-gray-500">Paid orders</p>
+          <p className="text-2xl">{paidCount}</p>
+        </div>
+        <div className="rounded border border-gray-200 p-3">
+          <p className="text-sm text-gray-500">Paid total</p>
+          <p className="text-2xl">{paidTotal}</p>
+        </div>
+      </div>
+      {topPaths.length ? (
+        <ul className="mt-4 space-y-1 text-sm">
+          {topPaths.map((row) => (
+            <li key={row.path} className="flex justify-between gap-4">
+              <span>{row.path}</span>
+              <span>{row.count}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 text-sm text-gray-500">No page views yet.</p>
+      )}
+      {daily.length ? (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="py-2 font-medium">Day</th>
+                <th className="py-2 font-medium">Views</th>
+                <th className="py-2 font-medium">Paid</th>
+              </tr>
+            </thead>
+            <tbody>
+              {daily.map((row) => (
+                <tr key={row.day} className="border-b border-gray-100">
+                  <td className="py-2">{row.day}</td>
+                  <td className="py-2">{row.views}</td>
+                  <td className="py-2">{row.paid_total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      <div className="mt-6">
+        <Button helpKey="admin.marketing.ask" type="button" onClick={ask} disabled={busy === 'ask'}>
+          {busy === 'ask' ? 'Asking…' : 'Ask AI'}
+        </Button>
+      </div>
+      <div className="mt-8 space-y-8">
+        {drafts.map((draft) => (
+          <section key={draft.id} className="space-y-3 border-t border-gray-200 pt-6">
+            <p className="text-sm text-gray-500">
+              {draft.status} · {draft.rationale}
+            </p>
+            {draft.analysis.summary ? <p className="text-sm">{draft.analysis.summary}</p> : null}
+            {draft.analysis.findings.length ? (
+              <ul className="list-disc pl-5 text-sm text-gray-700">
+                {draft.analysis.findings.map((finding) => (
+                  <li key={finding}>{finding}</li>
+                ))}
+              </ul>
+            ) : null}
+            <TextareaField label="Caption" rows={4} value={draft.caption} onChange={(e) => update(draft.id, { caption: e.target.value })} />
+            <TextInput label="Image URL" value={draft.image_url} onChange={(e) => update(draft.id, { image_url: e.target.value })} />
+            <TextInput label="Link" value={draft.link} onChange={(e) => update(draft.id, { link: e.target.value })} />
+            <div className="flex flex-wrap gap-4 text-sm">
+              {CHANNELS.map((channel) => (
+                <label key={channel}>
+                  <input
+                    type="checkbox"
+                    className="mr-1"
+                    disabled={!connected[channel] || draft.status === 'posted'}
+                    checked={draft.channels.includes(channel) && connected[channel]}
+                    onChange={(event) =>
+                      update(draft.id, {
+                        channels: event.target.checked
+                          ? [...draft.channels, channel]
+                          : draft.channels.filter((item) => item !== channel),
+                      })
+                    }
+                  />
+                  {channel}
+                  {connected[channel] ? '' : ' (add a token on Integrations)'}
+                </label>
+              ))}
+            </div>
+            {draft.results.map((result) => (
+              <p key={result.channel} className="text-sm text-gray-600">
+                {result.channel}: {result.status}
+                {result.error ? ` — ${result.error}` : ''}
+              </p>
+            ))}
+            <div className="flex flex-wrap gap-3">
+              <Button
+                helpKey="admin.marketing.save"
+                type="button"
+                variant="secondary"
+                disabled={draft.status === 'posted' || busy === `save-${draft.id}`}
+                onClick={() => save(draft)}
+              >
+                Save draft
+              </Button>
+              <Button
+                helpKey="admin.marketing.confirm"
+                type="button"
+                disabled={draft.status === 'posted' || busy === `post-${draft.id}`}
+                onClick={() => confirm(draft)}
+              >
+                Confirm and post
+              </Button>
+              <Button helpKey="admin.marketing.export" type="button" variant="ghost" onClick={() => exportDraft(draft)}>
+                Export JSON
+              </Button>
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}

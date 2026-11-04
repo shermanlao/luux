@@ -26,7 +26,7 @@ The script is safe to run again. Products are matched by Shopify id (or handle).
 - Collection membership
 - CMS pages from `/pages.json` (skips sitemap / privacy-widget pages)
 - Policy HTML from `/policies/{handle}` when present
-- Homepage hero image when it can be found in the live HTML
+- Homepage hero image from the live `hero__image` (the `/zh-hant` page, then the English page)
 
 Featured home products are those whose titles match Oboe, Laputa, Conduit, and Bowling Pin.
 

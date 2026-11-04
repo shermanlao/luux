@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler, notFound } from '../lib/asyncHandler';
 import { requireAdmin } from '../lib/authMiddleware';
+import { changeOrderStock } from '../lib/orderStock';
 import { serializeOrder } from '../lib/serialize';
 import Order from '../models/Order';
 import OrderItem from '../models/OrderItem';
@@ -52,6 +53,11 @@ router.post(
       res.status(400).json({ error: 'A fulfilled order cannot be cancelled here.' });
       return;
     }
+    if (order.status === 'cancelled') {
+      res.json({ order: serializeOrder(order) });
+      return;
+    }
+    if (order.status === 'paid') await changeOrderStock(order.id, 1);
     order.status = 'cancelled';
     await order.save();
     res.json({ order: serializeOrder(order) });

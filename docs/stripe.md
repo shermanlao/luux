@@ -1,11 +1,11 @@
 # Stripe
 
-Card data never touches this server. Checkout creates a Stripe Checkout Session; a webhook marks the order paid and reduces stock.
+Card data never touches this server. Checkout creates a Stripe Checkout Session. The webhook marks the order paid and reduces stock only when Stripe reports the session as paid. Cancelling a paid order puts that stock back. A failed Checkout Session leaves the order cancelled.
 
 ## Local
 
 1. Create a Stripe account and get **test** keys.
-2. Put them in `backend-server/.env`:
+2. Save them on http://localhost:3000/admin/integrations (secret key, publishable key, webhook secret). A blank field keeps the saved key. Checkout reads the database first and uses `backend-server/.env` only when that field is empty:
 
 ```
 STRIPE_SECRET_KEY=sk_test_...
@@ -19,16 +19,16 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 stripe listen --forward-to localhost:3333/api/stripe/webhook
 ```
 
-Paste the `whsec_...` value into `STRIPE_WEBHOOK_SECRET`.
+Paste the `whsec_...` value into Webhook secret on Integrations, or into `STRIPE_WEBHOOK_SECRET` when the database field is empty.
 
 4. Pay with Stripe test card `4242 4242 4242 4242`.
 
 ## Production
 
-Use **live** keys on the VPS only. Nginx should send `/api/stripe/webhook` to the Express process (see [vps.md](vps.md)). After DNS points at the VPS, add the endpoint in Stripe:
+Use **live** keys on the VPS. `SITE_ORIGIN` must be `https://luuxmart.com` so Stripe return URLs and the login cookie stay on HTTPS. Nginx sends `/api/stripe/webhook` to the Express process (see [vps.md](vps.md)). The live endpoint is:
 
 `https://luuxmart.com/api/stripe/webhook`
 
-Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`.
+Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`. The shop ignores a completed session until `payment_status` is `paid`.
 
 Prices are HKD with two decimal places (`unit_amount` in cents). Refunds are done in the Stripe dashboard.

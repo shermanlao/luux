@@ -1,7 +1,23 @@
 import Stripe from 'stripe';
+import SiteSetting from '../models/SiteSetting';
 
-export function getStripe(): Stripe {
-  const key = String(process.env.STRIPE_SECRET_KEY || '').trim();
+async function savedOrEnv(column: 'stripe_secret_key' | 'stripe_webhook_secret', envName: string): Promise<string> {
+  const site = await SiteSetting.findByPk(1);
+  const saved = String(site?.[column] || '').trim();
+  if (saved) return saved;
+  return String(process.env[envName] || '').trim();
+}
+
+export async function stripeSecretKey(): Promise<string> {
+  return savedOrEnv('stripe_secret_key', 'STRIPE_SECRET_KEY');
+}
+
+export async function stripeWebhookSecret(): Promise<string> {
+  return savedOrEnv('stripe_webhook_secret', 'STRIPE_WEBHOOK_SECRET');
+}
+
+export async function getStripe(): Promise<Stripe> {
+  const key = await stripeSecretKey();
   if (!key) {
     throw new Error('Stripe is not configured. Set STRIPE_SECRET_KEY.');
   }

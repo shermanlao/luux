@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import AdminNav from '@/components/admin/AdminNav';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -19,7 +18,6 @@ export default function AdminHomePage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <AdminPageHeader title="Dashboard" showLogout />
-      <AdminNav />
       <div className="grid gap-4 md:grid-cols-4">
         <Card>Products {stats.products}</Card>
         <Card>Orders {stats.orders}</Card>

@@ -1,5 +1,6 @@
 import type { CookieOptions, Request, Response } from 'express';
 import { SESSION_COOKIE_OPTIONS } from './shared/hmac';
+import AdminUser from '../models/AdminUser';
 import { ADMIN_SESSION_COOKIE, verifySessionValue, type AdminSession } from './shared/admin-session';
 import { CUSTOMER_SESSION_COOKIE, verifyCustomerSessionValue, type CustomerSession } from './shared/customer-session';
 
@@ -18,11 +19,16 @@ export function setCookie(res: Response, name: string, value: string): void {
 }
 
 export function clearCookie(res: Response, name: string): void {
-  res.clearCookie(name, { path: '/', httpOnly: true, sameSite: 'lax' });
+  const options = cookieOptions();
+  res.clearCookie(name, { path: options.path, httpOnly: options.httpOnly, sameSite: options.sameSite, secure: options.secure });
 }
 
 export async function readAdminSession(req: Request): Promise<AdminSession | null> {
-  return verifySessionValue(req.cookies?.[ADMIN_SESSION_COOKIE]);
+  const session = await verifySessionValue(req.cookies?.[ADMIN_SESSION_COOKIE]);
+  if (!session) return null;
+  const user = await AdminUser.findOne({ where: { username: session.username } });
+  if (!user || !user.active || user.session_epoch !== session.epoch) return null;
+  return session;
 }
 
 export async function readCustomerSession(req: Request): Promise<CustomerSession | null> {

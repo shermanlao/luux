@@ -59,7 +59,7 @@ export function serializeProduct(
     variants?: Variant[];
     collections?: Collection[];
   },
-  extra?: { collection_handles?: string[] }
+  extra?: { collection_handles?: string[]; admin?: boolean }
 ) {
   const images = [...(product.images || [])].sort((a, b) => a.position - b.position);
   const variants = product.variants || [];
@@ -73,6 +73,9 @@ export function serializeProduct(
     handle: product.handle,
     body_html: product.body_html,
     vendor: product.vendor,
+    ...(extra?.admin
+      ? { vendor_url: product.vendor_url || '', vendor_contact: product.vendor_contact || '' }
+      : {}),
     product_type: product.product_type,
     tags: product.tags,
     published: product.published,
@@ -145,7 +148,9 @@ export function serializeSite(site: SiteSetting) {
     pinterest_url: site.pinterest_url,
     seo_title: site.seo_title,
     seo_description: site.seo_description,
+    logo: site.logo || '/images/luux-logo.jpg',
     logo_icon: site.logo_icon,
+    cookie_notice: site.cookie_notice,
   };
 }
 

@@ -18,7 +18,8 @@ body {
 @layer components {
   .btn-primary,
   .btn-secondary,
-  .btn-danger {
+  .btn-danger,
+  .btn-accent {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -36,6 +37,22 @@ body {
 
   .btn-primary:hover {
     background-color: rgb(31, 41, 55);
+  }
+
+  .btn-accent {
+    background-color: #1d4ed8;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+  }
+
+  .btn-accent:hover {
+    background-color: #1e40af;
+  }
+
+  .btn-accent:disabled {
+    background-color: #94a3b8;
+    cursor: not-allowed;
   }
 
   .btn-secondary {
@@ -163,6 +180,18 @@ body {
     border-color: rgb(17 24 39);
     height: 3rem;
     width: 3rem;
+  }
+
+  .prose-luux {
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+
+  .prose-luux img,
+  .prose-luux video,
+  .prose-luux iframe,
+  .prose-luux table {
+    max-width: 100%;
   }
 
   .prose-luux :where(h2, h3) {

@@ -23,8 +23,11 @@ export default function ProductGallery({
   const thumbsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const selected = thumbsRef.current?.querySelector('[aria-current="true"]');
-    selected?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    const parent = thumbsRef.current;
+    const selected = parent?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!parent || !selected) return;
+    const left = selected.offsetLeft - parent.clientWidth / 2 + selected.clientWidth / 2;
+    parent.scrollTo({ left, behavior: 'smooth' });
   }, [imageId]);
 
   if (!current) return <div className="aspect-square rounded-md bg-gray-100" />;
@@ -36,8 +39,8 @@ export default function ProductGallery({
   };
 
   return (
-    <div>
-      <div className="relative aspect-square overflow-hidden rounded-md bg-gray-100">
+    <div className="min-w-0 max-w-full">
+      <div className="relative aspect-square w-full max-w-full overflow-hidden rounded-md bg-gray-100">
         <img key={current.id} src={current.src} alt={alt} className="h-full w-full object-contain" />
         {images.length > 1 ? (
           <>
@@ -61,7 +64,7 @@ export default function ProductGallery({
         ) : null}
       </div>
       {images.length > 1 ? (
-        <div ref={thumbsRef} className="mt-3 flex gap-2 overflow-x-auto pb-1">
+        <div ref={thumbsRef} className="mt-3 flex w-full max-w-full gap-2 overflow-x-auto pb-1">
           {images.map((row, position) => {
             const active = row.id === current.id;
             return (

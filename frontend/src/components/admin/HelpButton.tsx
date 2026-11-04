@@ -28,7 +28,7 @@ async function loadTips(): Promise<TipMap> {
   return tipCache;
 }
 
-function useHelpTip(helpKey: string, fallback?: string) {
+export function useHelpTip(helpKey: string, fallback?: string) {
   const [tip, setTip] = useState('');
   useEffect(() => {
     let cancelled = false;

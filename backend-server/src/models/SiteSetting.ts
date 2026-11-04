@@ -28,7 +28,22 @@ class SiteSetting extends Model {
   declare pinterest_url: string;
   declare seo_title: string;
   declare seo_description: string;
+  declare logo: string;
   declare logo_icon: string;
+  declare cookie_notice: string;
+  declare ai_base_url: string;
+  declare ai_api_key: string;
+  declare ai_model: string;
+  declare stripe_secret_key: string;
+  declare stripe_publishable_key: string;
+  declare stripe_webhook_secret: string;
+  declare marketing_api_key: string;
+  declare facebook_page_id: string;
+  declare facebook_page_token: string;
+  declare instagram_account_id: string;
+  declare instagram_token: string;
+  declare threads_user_id: string;
+  declare threads_token: string;
 }
 
 SiteSetting.init(
@@ -71,7 +86,27 @@ SiteSetting.init(
       allowNull: false,
       defaultValue: 'Modern lighting for living spaces. Pendant, wall, table, floor, and ceiling lamps.',
     },
-    logo_icon: { type: DataTypes.STRING, allowNull: false, defaultValue: '/images/luux-mark.svg' },
+    logo: { type: DataTypes.STRING, allowNull: false, defaultValue: '/images/luux-logo.jpg' },
+    logo_icon: { type: DataTypes.STRING, allowNull: false, defaultValue: '/images/luux-mark.jpg' },
+    cookie_notice: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+      defaultValue:
+        'We use a login cookie and keep your cart in this browser. We do not use advertising cookies. Allow or Reject is remembered for this network.',
+    },
+    ai_base_url: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    ai_api_key: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    ai_model: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    stripe_secret_key: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    stripe_publishable_key: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    stripe_webhook_secret: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    marketing_api_key: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    facebook_page_id: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    facebook_page_token: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    instagram_account_id: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    instagram_token: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    threads_user_id: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    threads_token: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
   },
   { sequelize, modelName: 'SiteSetting', tableName: 'site_settings' }
 );

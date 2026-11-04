@@ -7,6 +7,8 @@ class Product extends Model {
   declare handle: string;
   declare body_html: string;
   declare vendor: string;
+  declare vendor_url: string;
+  declare vendor_contact: string;
   declare product_type: string;
   declare tags: string;
   declare published: boolean;
@@ -21,6 +23,8 @@ Product.init(
     handle: { type: DataTypes.STRING, allowNull: false, unique: true },
     body_html: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     vendor: { type: DataTypes.STRING, allowNull: false, defaultValue: 'LUUX' },
+    vendor_url: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    vendor_contact: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     product_type: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     tags: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     published: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },

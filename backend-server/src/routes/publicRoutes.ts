@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { Op } from 'sequelize';
 import { asyncHandler, notFound } from '../lib/asyncHandler';
+import { hashClientIp } from '../lib/cookieConsent';
 import { readCustomerSession } from '../lib/cookies';
 import { rateLimit } from '../lib/rateLimit';
 import { PRODUCT_INCLUDE, serializeCollection, serializePage, serializeProduct, serializeShipping, serializeSite } from '../lib/serialize';
+import CookieConsent from '../models/CookieConsent';
 import Collection from '../models/Collection';
 import ContactInquiry from '../models/ContactInquiry';
 import HelpTip from '../models/HelpTip';
@@ -12,6 +14,8 @@ import Page from '../models/Page';
 import Product from '../models/Product';
 import ShippingRate from '../models/ShippingRate';
 import SiteSetting from '../models/SiteSetting';
+import { recordPageView } from '../lib/marketingLuux';
+import Currency from '../models/Currency';
 
 const router = Router();
 
@@ -21,6 +25,22 @@ router.get(
     const rows = await HelpTip.findAll({ order: [['helpKey', 'ASC']] });
     res.json({
       data: rows.map((row) => ({ helpKey: row.helpKey, title: row.title, body: row.body })),
+    });
+  })
+);
+
+router.get(
+  '/currencies',
+  asyncHandler(async (_req, res) => {
+    const rows = await Currency.findAll({ order: [['sort_order', 'ASC'], ['code', 'ASC']] });
+    res.json({
+      currencies: rows.map((row) => ({
+        code: row.code,
+        name: row.name,
+        symbol: row.symbol,
+        rate: Number(row.rate),
+        decimals: row.decimals,
+      })),
     });
   })
 );
@@ -148,11 +168,64 @@ router.get(
   })
 );
 
+router.get(
+  '/cookie-consent',
+  asyncHandler(async (req, res) => {
+    const site = await SiteSetting.findByPk(1);
+    const [row, session] = await Promise.all([
+      CookieConsent.findOne({ where: { ip_hash: hashClientIp(req) } }),
+      readCustomerSession(req),
+    ]);
+    const choice = row?.choice === 'all' || row?.choice === 'necessary' ? row.choice : null;
+    res.json({
+      decided: Boolean(choice),
+      choice,
+      notice: site?.cookie_notice || '',
+      signedIn: Boolean(session),
+    });
+  })
+);
+
+router.post(
+  '/cookie-consent',
+  rateLimit({ windowMs: 60 * 60 * 1000, max: 8, name: 'cookie-consent' }),
+  asyncHandler(async (req, res) => {
+    const choice = String(req.body?.choice || '');
+    if (choice !== 'all' && choice !== 'necessary') {
+      res.status(400).json({ error: 'Choose allow or necessary cookies.' });
+      return;
+    }
+    const ip_hash = hashClientIp(req);
+    const existing = await CookieConsent.findOne({ where: { ip_hash } });
+    if (existing) {
+      existing.choice = choice;
+      await existing.save();
+    } else {
+      await CookieConsent.create({ ip_hash, choice });
+    }
+    res.json({ ok: true, decided: true, choice });
+  })
+);
+
+router.post(
+  '/traffic',
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 120, name: 'traffic' }),
+  asyncHandler(async (req, res) => {
+    const path = String(req.body?.path || '').split('?')[0].trim();
+    if (!path.startsWith('/') || path.startsWith('/admin') || path.includes('..') || path.length > 200) {
+      res.status(400).json({ error: 'That path is not counted.' });
+      return;
+    }
+    await recordPageView(path);
+    res.json({ ok: true });
+  })
+);
+
 router.post(
   '/newsletter',
   rateLimit({ windowMs: 60 * 60 * 1000, max: 8, name: 'newsletter' }),
   asyncHandler(async (req, res) => {
-    const email = String(req.body?.email || '').trim().toLowerCase();
+    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 200);
     if (!email || !email.includes('@')) {
       res.status(400).json({ error: 'Enter a valid email address.' });
       return;
@@ -166,10 +239,10 @@ router.post(
   '/contact',
   rateLimit({ windowMs: 60 * 60 * 1000, max: 8, name: 'contact' }),
   asyncHandler(async (req, res) => {
-    const name = String(req.body?.name || '').trim();
-    const email = String(req.body?.email || '').trim().toLowerCase();
-    const message = String(req.body?.message || '').trim();
-    if (!name || !email || !message) {
+    const name = String(req.body?.name || '').trim().slice(0, 120);
+    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 200);
+    const message = String(req.body?.message || '').trim().slice(0, 4000);
+    if (!name || !email.includes('@') || !message) {
       res.status(400).json({ error: 'Name, email, and message are required.' });
       return;
     }

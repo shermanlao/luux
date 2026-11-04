@@ -71,7 +71,9 @@ router.put(
       'pinterest_url',
       'seo_title',
       'seo_description',
+      'logo',
       'logo_icon',
+      'cookie_notice',
     ];
     for (const key of keys) {
       if (body[key] != null) {
@@ -83,6 +85,87 @@ router.put(
     }
     await site.save();
     res.json({ site: serializeSite(site) });
+  })
+);
+
+const INTEGRATION_SECRETS = [
+  'ai_api_key',
+  'stripe_secret_key',
+  'stripe_publishable_key',
+  'stripe_webhook_secret',
+  'marketing_api_key',
+  'facebook_page_token',
+  'instagram_token',
+  'threads_token',
+] as const;
+const INTEGRATION_TEXT = ['ai_base_url', 'ai_model', 'facebook_page_id', 'instagram_account_id', 'threads_user_id'] as const;
+
+function secretHint(value: string): { set: boolean; hint: string } {
+  const trimmed = value.trim();
+  if (!trimmed) return { set: false, hint: '' };
+  return { set: true, hint: `••••${trimmed.slice(-4)}` };
+}
+
+function serializeIntegrations(site: SiteSetting) {
+  const aiKey = secretHint(site.ai_api_key);
+  const stripeSecret = secretHint(site.stripe_secret_key);
+  const stripePublishable = secretHint(site.stripe_publishable_key);
+  const stripeWebhook = secretHint(site.stripe_webhook_secret);
+  const marketingKey = secretHint(site.marketing_api_key);
+  const facebookToken = secretHint(site.facebook_page_token);
+  const instagramToken = secretHint(site.instagram_token);
+  const threadsToken = secretHint(site.threads_token);
+  return {
+    ai_base_url: site.ai_base_url || '',
+    ai_model: site.ai_model || '',
+    ai_api_key_set: aiKey.set,
+    ai_api_key_hint: aiKey.hint,
+    stripe_secret_key_set: stripeSecret.set,
+    stripe_secret_key_hint: stripeSecret.hint,
+    stripe_publishable_key_set: stripePublishable.set,
+    stripe_publishable_key_hint: stripePublishable.hint,
+    stripe_webhook_secret_set: stripeWebhook.set,
+    stripe_webhook_secret_hint: stripeWebhook.hint,
+    marketing_api_key_set: marketingKey.set,
+    marketing_api_key_hint: marketingKey.hint,
+    facebook_page_id: site.facebook_page_id || '',
+    facebook_page_token_set: facebookToken.set,
+    facebook_page_token_hint: facebookToken.hint,
+    instagram_account_id: site.instagram_account_id || '',
+    instagram_token_set: instagramToken.set,
+    instagram_token_hint: instagramToken.hint,
+    threads_user_id: site.threads_user_id || '',
+    threads_token_set: threadsToken.set,
+    threads_token_hint: threadsToken.hint,
+  };
+}
+
+router.get(
+  '/integrations',
+  asyncHandler(async (_req, res) => {
+    const site = await SiteSetting.findByPk(1);
+    if (!site) return notFound(res, 'Settings');
+    res.json({ integrations: serializeIntegrations(site) });
+  })
+);
+
+router.put(
+  '/integrations',
+  asyncHandler(async (req, res) => {
+    const site = await SiteSetting.findByPk(1);
+    if (!site) return notFound(res, 'Settings');
+    const body = req.body || {};
+    for (const key of INTEGRATION_TEXT) {
+      if (body[key] != null) site[key] = String(body[key]).trim();
+    }
+    for (const key of INTEGRATION_SECRETS) {
+      if (body[key] == null) continue;
+      const value = String(body[key]).trim();
+      if (!value) continue;
+      site[key] = value;
+    }
+    await site.save();
+    res.json({ integrations: serializeIntegrations(site) });
   })
 );
 

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import AdminNav from '@/components/admin/AdminNav';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import AdminTable from '@/components/ui/AdminTable';
 import Button from '@/components/ui/Button';
@@ -23,7 +22,6 @@ export default function AdminOrdersPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <AdminPageHeader title="Orders" />
-      <AdminNav />
       <AdminTable columns={['Number', 'Email', 'Status', 'Total', '']} empty={!orders.length}>
         {orders.map((order) => (
           <tr key={order.id}>

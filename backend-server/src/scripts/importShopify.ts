@@ -167,14 +167,28 @@ async function importPages(): Promise<void> {
   }
 }
 
+function heroImageUrl(html: string): string | null {
+  const patterns = [
+    /<img[^>]+class="[^"]*hero__image[^"]*"[^>]+src="([^"]+)"/i,
+    /<img[^>]+src="([^"]+)"[^>]+class="[^"]*hero__image[^"]*"/i,
+    /<img[^>]+class="[^"]*banner[^"]*"[^>]+src="([^"]+)"/i,
+    /src="((?:https?:)?\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i,
+  ];
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (!match) continue;
+    const raw = match[1].replace(/&amp;/g, '&');
+    if (raw.startsWith('//')) return `https:${raw}`;
+    if (raw.startsWith('http')) return raw;
+  }
+  return null;
+}
+
 async function importHero(site: SiteSetting): Promise<void> {
   try {
-    const html = await fetchText(ORIGIN + '/');
-    const match =
-      html.match(/<img[^>]+class="[^"]*banner[^"]*"[^>]+src="([^"]+)"/i) ||
-      html.match(/src="(https:\/\/cdn\.shopify\.com\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i);
-    if (!match) return;
-    const url = match[1].replace(/&amp;/g, '&');
+    const html = await fetchText(`${ORIGIN}/zh-hant`).catch(() => fetchText(ORIGIN + '/'));
+    const url = heroImageUrl(html);
+    if (!url) return;
     const abs = absoluteUploadPath('site', 'hero.jpg');
     await downloadTo(url, abs);
     site.hero_image = publicUploadPath('site', 'hero.jpg');

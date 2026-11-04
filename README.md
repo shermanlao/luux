@@ -14,9 +14,11 @@ cd ..
 npm run dev
 ```
 
-- Site: http://localhost:3000
+From the `\\LIGHTX\web\luux` share, Windows prints that CMD cannot use a UNC path. `npm run` then continues from a drive letter: an existing mapping of this folder, or a temporary drive that is removed when the command exits.
+
+- Site: http://127.0.0.1:3000
 - API: http://127.0.0.1:3333
-- Admin: http://localhost:3000/admin (first login `admin@luux.local` / `abc4321`)
+- Staff backend: http://127.0.0.1:3000/admin (first login `admin@luux.local` / `abc4321`). The same email and password also work on http://127.0.0.1:3000/account and then open the admin area.
 
 Import the live Shopify catalog (products, variants, photos, collections, pages):
 

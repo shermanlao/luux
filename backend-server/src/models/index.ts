@@ -1,11 +1,16 @@
 import sequelize from '../database';
 import {
+  ensureCurrencies,
+  ensureCustomerOAuthColumns,
+  ensureProductVendorColumns,
   ensureDefaultAdmin,
   ensureDefaultPages,
   ensureShippingRates,
   ensureSiteSettings,
   upsertHelpTips,
 } from '../seed/defaults';
+import Currency from './Currency';
+import CookieConsent from './CookieConsent';
 import AdminUser from './AdminUser';
 import Collection from './Collection';
 import ContactInquiry from './ContactInquiry';
@@ -22,6 +27,8 @@ import ProductOption from './ProductOption';
 import ShippingRate from './ShippingRate';
 import SiteSetting from './SiteSetting';
 import Variant from './Variant';
+import PageView from './PageView';
+import MarketingCampaign from './MarketingCampaign';
 
 Product.hasMany(ProductImage, { foreignKey: 'product_id', as: 'images', onDelete: 'CASCADE' });
 ProductImage.belongsTo(Product, { foreignKey: 'product_id' });
@@ -53,9 +60,12 @@ OrderItem.belongsTo(Order, { foreignKey: 'order_id' });
 async function syncDatabase() {
   try {
     await sequelize.sync();
+    await ensureCustomerOAuthColumns();
+    await ensureProductVendorColumns();
     await upsertHelpTips();
     await ensureDefaultAdmin();
     await ensureSiteSettings();
+    await ensureCurrencies();
     await ensureShippingRates();
     await ensureDefaultPages();
     console.log('All models were synchronized successfully.');
@@ -68,6 +78,7 @@ syncDatabase();
 
 export {
   AdminUser,
+  CookieConsent,
   Collection,
   ContactInquiry,
   Customer,
@@ -81,6 +92,9 @@ export {
   ProductImage,
   ProductOption,
   ShippingRate,
+  Currency,
   SiteSetting,
   Variant,
+  PageView,
+  MarketingCampaign,
 };
