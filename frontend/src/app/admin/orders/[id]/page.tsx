@@ -10,7 +10,7 @@ import Card from '@/components/ui/Card';
 import { formatHkd } from '@shared/slugify';
 import type { Order } from '@/lib/types';
 
-function formatWhen(value?: string) {
+function formatWhen(value?: string | null) {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
@@ -93,6 +93,7 @@ export default function AdminOrderPage() {
   }
 
   const placed = formatWhen(order.createdAt);
+  const updated = formatWhen(order.updatedAt);
   const address = addressLines(order);
   const actions = (
     <>
@@ -112,6 +113,10 @@ export default function AdminOrderPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <AdminPageHeader title={order.number} backHref="/admin/orders" backLabel="Back to Orders" actions={actions} />
+      <p className="mb-6 text-sm text-gray-500">
+        Placed {placed || 'Unknown'}
+        {updated && updated !== placed ? ` · Updated ${updated}` : ''}
+      </p>
       {error ? <AlertBanner className="mb-6">{error}</AlertBanner> : null}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -119,18 +124,46 @@ export default function AdminOrderPage() {
             {order.items.map((item) => (
               <tr key={item.id}>
                 <td className="px-6 py-3">
-                  <div>{item.title}</div>
-                  {item.variant_title && item.variant_title !== 'Default Title' ? (
-                    <div className="text-sm text-gray-500">{item.variant_title}</div>
-                  ) : null}
+                  <div className="flex gap-3">
+                    {item.image ? <img src={item.image} alt="" className="h-16 w-16 shrink-0 rounded object-cover" /> : null}
+                    <div>
+                      <div>{item.title}</div>
+                      {(item.options?.length
+                        ? item.options
+                        : item.variant_title && item.variant_title !== 'Default Title'
+                          ? [{ name: '', value: item.variant_title }]
+                          : []
+                      ).map((choice) => (
+                        <div key={`${choice.name}-${choice.value}`} className="text-sm text-gray-500">
+                          {choice.name ? `${choice.name}: ${choice.value}` : choice.value}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </td>
-                <td className="px-6 py-3">{item.sku}</td>
+                <td className="break-all px-6 py-3">{item.sku}</td>
                 <td className="px-6 py-3">{item.quantity}</td>
                 <td className="px-6 py-3">{formatHkd(item.unit_price)}</td>
                 <td className="px-6 py-3">{formatHkd(lineTotal(item.quantity, item.unit_price))}</td>
               </tr>
             ))}
           </AdminTable>
+          {(order.items || []).some((item) => item.body_html?.trim()) ? (
+            <div className="mt-6 space-y-5">
+              <h2 className="text-lg font-semibold">Product details</h2>
+              {order.items.map((item) =>
+                item.body_html?.trim() ? (
+                  <div key={item.id}>
+                    <div className="mb-2 text-sm font-medium">{item.title}</div>
+                    <div
+                      className="text-sm text-gray-800 [&_.spec-label]:text-gray-500 [&_.spec-row]:grid [&_.spec-row]:grid-cols-[9rem_minmax(0,1fr)] [&_.spec-row]:gap-x-4 [&_.spec-row]:py-1"
+                      dangerouslySetInnerHTML={{ __html: item.body_html }}
+                    />
+                  </div>
+                ) : null
+              )}
+            </div>
+          ) : null}
         </div>
         <div className="space-y-6">
           <Card>

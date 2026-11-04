@@ -1,17 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
-import { HelpLink } from '@/components/admin/HelpButton';
+import HelpButton from '@/components/admin/HelpButton';
+import OrderDetailsDialog from '@/components/admin/OrderDetailsDialog';
 import AdminTable from '@/components/ui/AdminTable';
-import Button from '@/components/ui/Button';
 import { formatHkd } from '@shared/slugify';
 import type { Order } from '@/lib/types';
 
 export default function AdminOrdersPage() {
-  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   async function load() {
     const data = await fetch('/api/admin/orders').then((res) => res.json());
@@ -22,60 +23,71 @@ export default function AdminOrdersPage() {
     load().catch(() => undefined);
   }, []);
 
+  const selected = orders.find((order) => order.id === selectedId) || null;
+
+  function openOrder(order: Order) {
+    setError('');
+    setSelectedId(order.id);
+  }
+
+  async function update(action: 'fulfill' | 'cancel') {
+    if (!selected || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/admin/orders/${selected.id}/${action}`, { method: 'POST' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.order) {
+        setError(data.error || 'Could not update this order.');
+        return;
+      }
+      const next = data.order as Order;
+      setOrders((current) => current.map((order) => (order.id === next.id ? next : order)));
+    } catch {
+      setError('Could not update this order.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <AdminPageHeader title="Orders" />
-      <AdminTable columns={['Number', 'Email', 'Status', 'Total', '']} empty={!orders.length}>
+      <AdminTable columns={['Number', 'Email', 'Status', 'Total']} empty={!orders.length}>
         {orders.map((order) => {
-          const href = `/admin/orders/${order.id}`;
+          const open = () => openOrder(order);
           return (
-            <tr
-              key={order.id}
-              className="cursor-pointer hover:bg-gray-50"
-              onClick={() => router.push(href)}
-            >
-              <td className="px-6 py-3">
-                <HelpLink helpKey="admin.order.open" href={href}>
-                  {order.number}
-                </HelpLink>
-              </td>
-              <td className="px-6 py-3">{order.email}</td>
-              <td className="px-6 py-3">{order.status}</td>
-              <td className="px-6 py-3">{formatHkd(order.total)}</td>
-              <td className="px-6 py-3">
-                <div className="flex gap-2">
-                  {order.status === 'paid' ? (
-                    <Button
-                      helpKey="admin.order.fulfill"
-                      variant="secondary"
-                      onClick={async (event) => {
-                        event.stopPropagation();
-                        await fetch(`/api/admin/orders/${order.id}/fulfill`, { method: 'POST' });
-                        await load();
-                      }}
-                    >
-                      Mark fulfilled
-                    </Button>
-                  ) : null}
-                  {order.status === 'pending' || order.status === 'paid' ? (
-                    <Button
-                      helpKey="admin.order.cancel"
-                      variant="danger"
-                      onClick={async (event) => {
-                        event.stopPropagation();
-                        await fetch(`/api/admin/orders/${order.id}/cancel`, { method: 'POST' });
-                        await load();
-                      }}
-                    >
-                      Cancel order
-                    </Button>
-                  ) : null}
-                </div>
-              </td>
+            <tr key={order.id} className="cursor-pointer hover:bg-gray-50">
+              {(
+                [
+                  order.number,
+                  order.email,
+                  order.status,
+                  formatHkd(order.total),
+                ] as const
+              ).map((value, index) => (
+                <td key={index} className="p-0">
+                  <HelpButton helpKey="admin.order.open" className="block w-full cursor-pointer px-6 py-3 text-left" onClick={open}>
+                    {value}
+                  </HelpButton>
+                </td>
+              ))}
             </tr>
           );
         })}
       </AdminTable>
+      <OrderDetailsDialog
+        order={selected}
+        busy={busy}
+        error={error}
+        onClose={() => {
+          if (busy) return;
+          setSelectedId(null);
+          setError('');
+        }}
+        onFulfill={() => update('fulfill')}
+        onCancel={() => update('cancel')}
+      />
     </div>
   );
 }

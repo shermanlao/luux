@@ -58,7 +58,7 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.nav.marketing', title: 'Marketing', body: 'Read shop traffic and draft posts. Nothing is published until you confirm.' },
   { helpKey: 'admin.nav.shipping', title: 'Shipping', body: 'Set the Hong Kong and worldwide flat rates.' },
   { helpKey: 'admin.nav.orders', title: 'Orders', body: 'See paid Stripe orders and mark them fulfilled.' },
-  { helpKey: 'admin.nav.inquiries', title: 'Inquiries', body: 'Read messages sent from the contact form.' },
+  { helpKey: 'admin.nav.inquiries', title: 'Messages', body: 'Read contact-form notes and mail from the inbox.' },
   { helpKey: 'admin.product.save', title: 'Save product', body: 'Save this product, its variants, and photos.' },
   { helpKey: 'admin.product.new', title: 'Add product', body: 'Create a new lamp.' },
   { helpKey: 'admin.product.delete', title: 'Delete product', body: 'Remove this lamp from the shop.' },
@@ -96,9 +96,21 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.page.edit', title: 'Edit', body: 'Open or close this page’s title and body.' },
   { helpKey: 'admin.page.body_view', title: 'Display', body: 'Switch the body between the HTML source and the page display.' },
   { helpKey: 'admin.page.save', title: 'Save page', body: 'Save this page text.' },
-  { helpKey: 'admin.settings.save', title: 'Save settings', body: 'Save homepage, contact details, and the cookie notice.' },
+  { helpKey: 'admin.settings.save', title: 'Save settings', body: 'Save homepage, contact details, email, and the cookie notice.' },
   { helpKey: 'admin.settings.threads', title: 'Threads', body: 'Public Threads profile shown in the shop footer.' },
   { helpKey: 'admin.settings.pinterest', title: 'Pinterest', body: 'Public Pinterest profile shown in the shop footer.' },
+  { helpKey: 'admin.settings.smtp_password', title: 'SMTP password', body: 'Password for outgoing mail. Leave blank to keep the saved password.' },
+  { helpKey: 'admin.settings.imap_password', title: 'IMAP password', body: 'Password for the inbox. Leave blank to keep the saved password.' },
+  { helpKey: 'admin.settings.smtp_secure', title: 'SMTP SSL', body: 'Turn this on for port 465. Leave it off for port 587.' },
+  { helpKey: 'admin.settings.imap_secure', title: 'IMAP SSL', body: 'Turn this on for port 993. Leave it off for port 143.' },
+  { helpKey: 'admin.messages.sync', title: 'Check mailbox', body: 'Read recent mail from the inbox in Settings.' },
+  { helpKey: 'admin.messages.filter_all', title: 'All messages', body: 'Show contact-form notes and email together.' },
+  { helpKey: 'admin.messages.filter_contact', title: 'Contact form', body: 'Show notes sent from the contact page.' },
+  { helpKey: 'admin.messages.filter_email', title: 'Email', body: 'Show mail read from the inbox.' },
+  { helpKey: 'admin.messages.open', title: 'Open message', body: 'Read this message and its replies.' },
+  { helpKey: 'admin.messages.close', title: 'Close', body: 'Close this message.' },
+  { helpKey: 'admin.messages.reply', title: 'Send reply', body: 'Email this reply to the sender.' },
+  { helpKey: 'admin.messages.delete', title: 'Delete message', body: 'Remove this message and its replies.' },
   { helpKey: 'admin.integrations.save', title: 'Save integrations', body: 'Save the AI API, Stripe payment details, and social posting tokens.' },
   { helpKey: 'admin.integrations.marketing_key', title: 'Marketing key', body: 'Create a key other apps can send when they ask this shop to draft a campaign. The full key is shown once.' },
   { helpKey: 'admin.marketing.ask', title: 'Ask AI', body: 'Read the last 30 days and draft posts. Nothing is published yet.' },
@@ -106,7 +118,8 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.marketing.confirm', title: 'Confirm and post', body: 'Publish this draft to the selected channels.' },
   { helpKey: 'admin.marketing.export', title: 'Export JSON', body: 'Download this campaign document for another app.' },
   { helpKey: 'admin.shipping.save', title: 'Save rates', body: 'Save the shipping amounts.' },
-  { helpKey: 'admin.order.open', title: 'Open order', body: 'Open this order’s items, totals, and shipping address.' },
+  { helpKey: 'admin.order.open', title: 'Open order', body: 'Show this order’s items, totals, and shipping address.' },
+  { helpKey: 'admin.order.close', title: 'Close', body: 'Close the order details.' },
   { helpKey: 'admin.order.fulfill', title: 'Mark fulfilled', body: 'Mark this paid order as shipped.' },
   { helpKey: 'admin.order.cancel', title: 'Cancel order', body: 'Cancel this order. Stripe refunds are done in the Stripe dashboard.' },
   { helpKey: 'admin.confirm.cancel', title: 'Cancel', body: 'Close this confirmation.' },
@@ -282,6 +295,35 @@ const INTEGRATION_COLUMNS: Array<{ name: string; type: typeof DataTypes.STRING |
   { name: 'threads_token', type: DataTypes.TEXT },
 ];
 
+const MAIL_COLUMNS: Array<{ name: string; type: typeof DataTypes.STRING | typeof DataTypes.TEXT; defaultValue: string }> = [
+  { name: 'mail_smtp_host', type: DataTypes.STRING, defaultValue: '' },
+  { name: 'mail_smtp_port', type: DataTypes.STRING, defaultValue: '587' },
+  { name: 'mail_smtp_secure', type: DataTypes.STRING, defaultValue: '0' },
+  { name: 'mail_smtp_user', type: DataTypes.STRING, defaultValue: '' },
+  { name: 'mail_smtp_password', type: DataTypes.TEXT, defaultValue: '' },
+  { name: 'mail_from_name', type: DataTypes.STRING, defaultValue: '' },
+  { name: 'mail_from_email', type: DataTypes.STRING, defaultValue: '' },
+  { name: 'mail_imap_host', type: DataTypes.STRING, defaultValue: '' },
+  { name: 'mail_imap_port', type: DataTypes.STRING, defaultValue: '993' },
+  { name: 'mail_imap_secure', type: DataTypes.STRING, defaultValue: '1' },
+  { name: 'mail_imap_user', type: DataTypes.STRING, defaultValue: '' },
+  { name: 'mail_imap_password', type: DataTypes.TEXT, defaultValue: '' },
+];
+
+async function ensureMailColumns(): Promise<void> {
+  const queryInterface = sequelize.getQueryInterface();
+  const table = await queryInterface.describeTable('site_settings').catch(() => null);
+  if (!table) return;
+  for (const column of MAIL_COLUMNS) {
+    if (table[column.name]) continue;
+    await queryInterface.addColumn('site_settings', column.name, {
+      type: column.type,
+      allowNull: false,
+      defaultValue: column.defaultValue,
+    });
+  }
+}
+
 async function ensureIntegrationColumns(): Promise<void> {
   const queryInterface = sequelize.getQueryInterface();
   const table = await queryInterface.describeTable('site_settings').catch(() => null);
@@ -335,6 +377,7 @@ export async function ensureSiteSettings(): Promise<SiteSetting> {
   await ensureHeaderLogoColumn();
   await ensureCookieNoticeColumn();
   await ensureIntegrationColumns();
+  await ensureMailColumns();
   const existing = await SiteSetting.findByPk(1);
   if (existing) {
     let changed = applyEnglishCopy(existing);

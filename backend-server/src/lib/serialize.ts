@@ -167,7 +167,46 @@ export function serializeShipping(rate: ShippingRate) {
   };
 }
 
-export function serializeOrder(order: Order & { items?: OrderItem[] }) {
+function timestamp(value: Date | string | null | undefined): string | null {
+  if (value == null || value === '') return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function itemChoices(
+  options: ProductOption[] | undefined,
+  variant: Variant | null | undefined,
+  variantTitle: string
+) {
+  const names = [...(options || [])].sort((a, b) => a.position - b.position).map((option) => option.name);
+  const values = [variant?.option1, variant?.option2, variant?.option3].filter((value): value is string => Boolean(value && value.trim()));
+  if (values.length) {
+    return values.map((value, index) => ({ name: names[index] || '', value }));
+  }
+  if (variantTitle && variantTitle !== 'Default Title') return [{ name: '', value: variantTitle }];
+  return [];
+}
+
+function itemImage(
+  images: ProductImage[] | undefined,
+  variant: Variant | null | undefined
+) {
+  const sorted = [...(images || [])].sort((a, b) => a.position - b.position);
+  if (!sorted.length) return '';
+  if (variant?.image_id) {
+    const match = sorted.find((image) => image.id === variant.image_id);
+    if (match) return match.src;
+  }
+  return sorted[0].src;
+}
+
+type OrderLine = OrderItem & {
+  product?: (Product & { images?: ProductImage[]; options?: ProductOption[] }) | null;
+  variant?: Variant | null;
+};
+
+export function serializeOrder(order: Order & { items?: OrderLine[]; updatedAt?: Date }) {
   return {
     id: order.id,
     number: order.number,
@@ -189,14 +228,20 @@ export function serializeOrder(order: Order & { items?: OrderItem[] }) {
     notes: order.notes,
     stripe_session_id: order.stripe_session_id,
     stripe_payment_intent: order.stripe_payment_intent,
-    createdAt: order.createdAt,
+    createdAt: timestamp(order.createdAt),
+    updatedAt: timestamp(order.updatedAt),
     items: (order.items || []).map((item) => ({
       id: item.id,
+      product_id: item.product_id,
       title: item.title,
       variant_title: item.variant_title,
       sku: item.sku,
       quantity: item.quantity,
       unit_price: item.unit_price,
+      image: itemImage(item.product?.images, item.variant),
+      handle: item.product?.handle || '',
+      body_html: item.product?.body_html || '',
+      options: itemChoices(item.product?.options, item.variant, item.variant_title),
     })),
   };
 }

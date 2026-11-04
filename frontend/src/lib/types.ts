@@ -115,14 +115,20 @@ export type Order = {
   shipping_rate_name: string;
   notes?: string;
   stripe_payment_intent?: string | null;
-  createdAt?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   items: Array<{
     id: number;
+    product_id?: number;
     title: string;
     variant_title: string;
     sku: string;
     quantity: number;
     unit_price: string;
+    image?: string;
+    handle?: string;
+    body_html?: string;
+    options?: Array<{ name: string; value: string }>;
   }>;
 };
 

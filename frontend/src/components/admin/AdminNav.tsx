@@ -13,7 +13,7 @@ const LINKS = [
   { href: '/admin/marketing', label: 'Marketing', helpKey: 'admin.nav.marketing' },
   { href: '/admin/shipping', label: 'Shipping', helpKey: 'admin.nav.shipping' },
   { href: '/admin/orders', label: 'Orders', helpKey: 'admin.nav.orders' },
-  { href: '/admin/inquiries', label: 'Inquiries', helpKey: 'admin.nav.inquiries' },
+  { href: '/admin/messages', label: 'Messages', helpKey: 'admin.nav.inquiries' },
 ];
 
 function isActive(pathname: string, href: string) {

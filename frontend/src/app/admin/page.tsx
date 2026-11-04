@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 
 export default function AdminHomePage() {
-  const [stats, setStats] = useState({ products: 0, orders: 0, paid: 0, inquiries: 0 });
+  const [stats, setStats] = useState({ products: 0, orders: 0, paid: 0, inquiries: 0, messages: 0 });
 
   useEffect(() => {
     fetch('/api/admin/dashboard')
@@ -22,7 +22,7 @@ export default function AdminHomePage() {
         <Card>Products {stats.products}</Card>
         <Card>Orders {stats.orders}</Card>
         <Card>Paid {stats.paid}</Card>
-        <Card>Inquiries {stats.inquiries}</Card>
+        <Card>Messages {stats.messages ?? stats.inquiries}</Card>
       </div>
       <div className="mt-8 flex flex-wrap gap-2">
         <Button helpKey="admin.nav.products" href="/admin/products">

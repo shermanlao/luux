@@ -7,7 +7,7 @@ import { rateLimit } from '../lib/rateLimit';
 import { PRODUCT_INCLUDE, serializeCollection, serializePage, serializeProduct, serializeShipping, serializeSite } from '../lib/serialize';
 import CookieConsent from '../models/CookieConsent';
 import Collection from '../models/Collection';
-import ContactInquiry from '../models/ContactInquiry';
+import { saveContactMessage } from '../lib/mail';
 import HelpTip from '../models/HelpTip';
 import NewsletterSubscriber from '../models/NewsletterSubscriber';
 import Page from '../models/Page';
@@ -284,7 +284,7 @@ router.post(
       res.status(400).json({ error: 'Name, email, and message are required.' });
       return;
     }
-    await ContactInquiry.create({ name, email, message });
+    await saveContactMessage({ name, email, message });
     res.json({ ok: true });
   })
 );

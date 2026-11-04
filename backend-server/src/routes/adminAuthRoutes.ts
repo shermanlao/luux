@@ -6,7 +6,9 @@ import { verifyPassword } from '../lib/adminPassword';
 import { rateLimit } from '../lib/rateLimit';
 import { ADMIN_SESSION_COOKIE, createSessionValue } from '../lib/shared/admin-session';
 import AdminUser from '../models/AdminUser';
+import { importContactInquiries } from '../lib/mail';
 import ContactInquiry from '../models/ContactInquiry';
+import MailboxMessage from '../models/MailboxMessage';
 import Order from '../models/Order';
 import Product from '../models/Product';
 
@@ -53,13 +55,19 @@ router.get(
   '/dashboard',
   requireAdmin(),
   asyncHandler(async (_req, res) => {
-    const [products, orders, paid, inquiries] = await Promise.all([
+    const [products, orders, paid] = await Promise.all([
       Product.count(),
       Order.count(),
       Order.count({ where: { status: 'paid' } }),
-      ContactInquiry.count(),
     ]);
-    res.json({ products, orders, paid, inquiries });
+    let messages = 0;
+    try {
+      await importContactInquiries();
+      messages = await MailboxMessage.count({ where: { direction: 'in', parent_id: null } });
+    } catch {
+      messages = await ContactInquiry.count();
+    }
+    res.json({ products, orders, paid, inquiries: messages, messages });
   })
 );
 

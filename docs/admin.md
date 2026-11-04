@@ -10,24 +10,24 @@ Staff routes under `/admin` require a signed-in session. Logins are rows in `adm
 
 The session is an httpOnly cookie (`luux_admin_session`) signed with `ADMIN_SESSION_SECRET`. Next.js middleware blocks `/admin` except `/admin/login`.
 
-Staff pages share a left panel (`AdminNav`) with Dashboard, Products, Collections, Pages, Settings, Integrations, Marketing, Shipping, Orders, and Inquiries. The current page is filled black. Sign-in stays a centered form without that panel.
+Staff pages share a left panel (`AdminNav`) with Dashboard, Products, Collections, Pages, Settings, Integrations, Marketing, Shipping, Orders, and Messages. The current page is filled black. Sign-in stays a centered form without that panel.
 
 ## Pages
 
 | Path | Use |
 | --- | --- |
-| `/admin` | Counts for products, orders, paid orders, inquiries |
+| `/admin` | Counts for products, orders, paid orders, messages |
 | `/admin/products` | Each row shows the main photo beside the lamp name. Click the row to open the editor. Add product stays in the header. A search box and a collection menu sit to the left of Add product. All collections shows every lamp. Search matches the lamp name. Product, Price, and Variants sort the list. The first click is A–Z, lowest price, or fewest variants. The second click reverses that. Until a heading is clicked, the newest product stays first. |
 | `/admin/products/[id]` | Title, supplier company, link, and contacts, HTML description, options, variants, stock, photos, collections. Each option is a name plus comma-separated values, with Delete on the row. Generate variants builds one row for every combination of the first three options and keeps price, SKU, and stock when that combination already exists. Each variant row has Delete. Link and contacts stay in the admin editor. Delete product is the top-right button and asks for confirmation. Add product (`/admin/products/new`) also has an AI assistant bar. |
 | `/admin/collections` | Table of title, handle, product count, and a short description. Edit opens that row’s title, handle, and description. Description switches between HTML source (Current) and the rendered page (Display). |
 | `/admin/pages` | Table of title, handle, and a short body. Edit opens that row’s title and HTML body, using the same Current / Display switch. About, Contact, privacy, cookie policy, refund, and terms. |
-| `/admin/settings` | Homepage announcement, hero, featured handles, header logo, browser icon, contact, Facebook, Instagram, Threads, and Pinterest profile links, SEO, cookie notice |
+| `/admin/settings` | Homepage announcement, hero, featured handles, header logo, browser icon, contact, email (SMTP and IMAP), Facebook, Instagram, Threads, and Pinterest profile links, SEO, cookie notice |
 | `/admin/integrations` | AI API base URL, key, and model. Stripe secret key, publishable key, and webhook secret. Facebook, Instagram, and Threads posting tokens. A marketing key for other apps, shown once. A blank secret keeps the saved value. Secret boxes stay blank after a save; the gray line under the box shows that a key is stored. These values live in that environment’s database. A deploy does not copy them from this computer to the VPS. The public site JSON does not include these. |
 | `/admin/marketing` | Last 30 days of anonymous page views, split into Human, AI, and Web scraping, plus country, where browser visits came from, time on each page, and paid orders. Ask AI drafts a campaign. Confirm and post publishes to the connected channels. Export JSON downloads the same campaign document. See [Marketing](marketing.md). |
 | `/admin/shipping` | Hong Kong and worldwide flat rates (HKD) |
-| `/admin/orders` | Paid Stripe orders. Click a row to open that order. Mark fulfilled or cancel stays on the row for a paid order, and the same actions are on the order page. Cancelling a paid order returns the stock. Refunds stay in the Stripe Dashboard. |
-| `/admin/orders/[id]` | Order number, email, status, date, notes, Stripe payment id, line items, subtotal, shipping, total, and the shipping address. |
-| `/admin/inquiries` | Contact form messages |
+| `/admin/orders` | Paid Stripe orders. Click a row to open a window with that order. The window shows when it was placed and last updated, each lamp’s photo, options, and product description, plus email, status, shipping address, and totals. Mark fulfilled or cancel is in that window. Cancelling a paid order returns the stock. Refunds stay in the Stripe Dashboard. |
+| `/admin/orders/[id]` | The same order details on their own page: number, email, status, date, notes, Stripe payment id, line items, subtotal, shipping, total, and the shipping address. |
+| `/admin/messages` | Contact-form notes and inbox mail. `/admin/inquiries` opens this page. |
 
 Add product (`/admin/products/new`) shows an AI assistant bar above the form. Paste a public product link and choose Read product (`admin.product.import`). The server reads that page with the AI base URL, key, and model saved on Integrations. A blank model sends `grok-4.7` when the base URL is `api.x.ai`, and `gpt-4o-mini` otherwise. It then fills the title, handle, options, variants, and photos, and puts that link in the supplier Link field. The description is the same spec list used by the other lamps: Material, Colour, Finish, Dimmable, Light Source, Wattage, CCT, Lumin, Plug, Power Source, Shade, Switch, and Size, with `N/A` where the page does not say. Photos are saved under `uploads/products` and shown in the Photos row. Nothing is stored on the product until Save product, which then attaches those photos. Prices stay as the numbers on the source page so they can be corrected to HKD first. A link that is not public http or https is refused.
 
@@ -40,5 +40,11 @@ Photos are added by dropping image files on the dashed Photos box. Each thumbnai
 The product **Payment test** (`payment-test`) is created on boot and stays unpublished, so it is absent from the shop, search, collections, and the product page. Open it in Products and choose **Pay US$1 test**. That starts a Stripe Checkout for about US$1 in Hong Kong dollars, with no shipping. The card form is the live Stripe page. Only a signed-in staff session can start that charge.
 
 Save product stays disabled while the save and photo attach are running. If the handle is already used, the API returns `A product with this handle already exists.` and the new-product form opens that lamp. Title, variant title, option name, SKU, and photo alt are stored up to 255 characters. A validation failure names the field instead of saying only “Validation error”.
+
+Messages (`/admin/messages`) lists contact-form notes and mail from the inbox. All, Contact form, and Email filter that list. Unread rows are bold. Open a row to read it, reply, or delete it. Check mailbox (`admin.messages.sync`) reads the last 30 days from the inbox, up to 40 messages, and skips mail sent from this shop’s own addresses. A later reply that references an earlier message is attached to that thread and marks it unread. Send reply uses the outgoing mail settings. Delete removes the thread and, for a contact-form note, the original inquiry. Older contact-form rows are copied into this list on the next view.
+
+A visitor’s note on `/pages/contact` is stored immediately. When outgoing mail is saved, a copy is sent to the contact Email address. A reply to that copy is attached to the same message.
+
+Email settings are the Email section on Settings. Outgoing mail is the SMTP host, port, SSL, username, password, from name, and from address. Incoming mail is the IMAP host, port, SSL, username, and password. A blank password keeps the saved one. Passwords stay in that environment’s database and are left out of the public site JSON. Port 587 usually leaves SSL off. Port 465 and IMAP port 993 use SSL.
 
 Public buttons use `helpKey`. Tip text lives in `help_tips` and is upserted on API start.

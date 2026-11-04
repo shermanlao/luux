@@ -36,7 +36,7 @@ router.get(
   asyncHandler(async (_req, res) => {
     const site = await SiteSetting.findByPk(1);
     if (!site) return notFound(res, 'Settings');
-    res.json({ site: serializeSite(site) });
+    res.json({ site: serializeSite(site), mail: serializeMail(site) });
   })
 );
 
@@ -83,8 +83,14 @@ router.put(
     if (Array.isArray(body.featured_handles)) {
       site.featured_handles = JSON.stringify(body.featured_handles.map((item: unknown) => String(item)));
     }
+    const mailError = applyMailSettings(site, body);
+    if (mailError) {
+      await site.reload();
+      res.status(400).json({ error: mailError });
+      return;
+    }
     await site.save();
-    res.json({ site: serializeSite(site) });
+    res.json({ site: serializeSite(site), mail: serializeMail(site) });
   })
 );
 
@@ -104,6 +110,63 @@ function secretHint(value: string): { set: boolean; hint: string } {
   const trimmed = value.trim();
   if (!trimmed) return { set: false, hint: '' };
   return { set: true, hint: `••••${trimmed.slice(-4)}` };
+}
+
+function serializeMail(site: SiteSetting) {
+  const smtp = secretHint(site.mail_smtp_password || '');
+  const imap = secretHint(site.mail_imap_password || '');
+  return {
+    mail_smtp_host: site.mail_smtp_host || '',
+    mail_smtp_port: site.mail_smtp_port || '587',
+    mail_smtp_secure: site.mail_smtp_secure === '1',
+    mail_smtp_user: site.mail_smtp_user || '',
+    mail_smtp_password_set: smtp.set,
+    mail_smtp_password_hint: smtp.hint,
+    mail_from_name: site.mail_from_name || '',
+    mail_from_email: site.mail_from_email || '',
+    mail_imap_host: site.mail_imap_host || '',
+    mail_imap_port: site.mail_imap_port || '993',
+    mail_imap_secure: site.mail_imap_secure !== '0',
+    mail_imap_user: site.mail_imap_user || '',
+    mail_imap_password_set: imap.set,
+    mail_imap_password_hint: imap.hint,
+  };
+}
+
+function cleanHost(value: unknown): string {
+  return String(value || '')
+    .trim()
+    .replace(/^(smtp|smtps|imap|imaps|ssl|tls):\/\//i, '')
+    .replace(/\/.*$/, '')
+    .slice(0, 255);
+}
+
+function applyMailSettings(site: SiteSetting, body: Record<string, unknown>): string | null {
+  if (body.mail_smtp_host != null) site.mail_smtp_host = cleanHost(body.mail_smtp_host);
+  if (body.mail_imap_host != null) site.mail_imap_host = cleanHost(body.mail_imap_host);
+  if (body.mail_smtp_user != null) site.mail_smtp_user = String(body.mail_smtp_user).trim().slice(0, 255);
+  if (body.mail_imap_user != null) site.mail_imap_user = String(body.mail_imap_user).trim().slice(0, 255);
+  if (body.mail_from_name != null) site.mail_from_name = String(body.mail_from_name).trim().slice(0, 255);
+  if (body.mail_from_email != null) {
+    const from = String(body.mail_from_email).trim().slice(0, 255);
+    if (from && !from.includes('@')) return 'Enter a valid from address.';
+    site.mail_from_email = from;
+  }
+  for (const key of ['mail_smtp_port', 'mail_imap_port'] as const) {
+    if (body[key] == null) continue;
+    const port = Number(String(body[key]).trim());
+    if (!Number.isInteger(port) || port < 1 || port > 65535) return 'Enter a valid mail port.';
+    site[key] = String(port);
+  }
+  if (body.mail_smtp_secure != null) site.mail_smtp_secure = body.mail_smtp_secure ? '1' : '0';
+  if (body.mail_imap_secure != null) site.mail_imap_secure = body.mail_imap_secure ? '1' : '0';
+  for (const key of ['mail_smtp_password', 'mail_imap_password'] as const) {
+    if (body[key] == null) continue;
+    const value = String(body[key]).trim();
+    if (!value) continue;
+    site[key] = value;
+  }
+  return null;
 }
 
 function serializeIntegrations(site: SiteSetting) {

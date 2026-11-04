@@ -4,37 +4,119 @@ import { FormEvent, useEffect, useState } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import Button from '@/components/ui/Button';
 import { TextInput, TextareaField } from '@/components/ui/FormField';
+import ToggleSwitch from '@/components/ui/ToggleSwitch';
 import { showSaveNotice } from '@/components/ui/SaveNotice';
 import type { SiteSettings } from '@/lib/types';
 
+type MailSettings = {
+  mail_smtp_host: string;
+  mail_smtp_port: string;
+  mail_smtp_secure: boolean;
+  mail_smtp_user: string;
+  mail_smtp_password: string;
+  mail_smtp_password_set: boolean;
+  mail_smtp_password_hint: string;
+  mail_from_name: string;
+  mail_from_email: string;
+  mail_imap_host: string;
+  mail_imap_port: string;
+  mail_imap_secure: boolean;
+  mail_imap_user: string;
+  mail_imap_password: string;
+  mail_imap_password_set: boolean;
+  mail_imap_password_hint: string;
+};
+
+const EMPTY_MAIL: MailSettings = {
+  mail_smtp_host: '',
+  mail_smtp_port: '587',
+  mail_smtp_secure: false,
+  mail_smtp_user: '',
+  mail_smtp_password: '',
+  mail_smtp_password_set: false,
+  mail_smtp_password_hint: '',
+  mail_from_name: '',
+  mail_from_email: '',
+  mail_imap_host: '',
+  mail_imap_port: '993',
+  mail_imap_secure: true,
+  mail_imap_user: '',
+  mail_imap_password: '',
+  mail_imap_password_set: false,
+  mail_imap_password_hint: '',
+};
+
+function applyMail(mail?: Partial<MailSettings>): MailSettings {
+  return {
+    ...EMPTY_MAIL,
+    ...mail,
+    mail_smtp_port: mail?.mail_smtp_port || '587',
+    mail_imap_port: mail?.mail_imap_port || '993',
+    mail_smtp_secure: Boolean(mail?.mail_smtp_secure),
+    mail_imap_secure: mail?.mail_imap_secure !== false,
+    mail_smtp_password: '',
+    mail_imap_password: '',
+  };
+}
+
+function passwordHint(set: boolean, hint: string): string {
+  if (!set) return 'Not saved yet. Leave blank later to keep the current password.';
+  return `Saved password ending ${hint}. Leave blank to keep it.`;
+}
+
 export default function AdminSettingsPage() {
   const [site, setSite] = useState<SiteSettings | null>(null);
+  const [mail, setMail] = useState<MailSettings | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/settings')
       .then((res) => res.json())
-      .then((data) => setSite(data.site));
+      .then((data) => {
+        setSite(data.site);
+        setMail(applyMail(data.mail));
+      });
   }, []);
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!site) return;
+    if (!site || !mail) return;
     const response = await fetch('/api/admin/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(site),
+      body: JSON.stringify({
+        ...site,
+        mail_smtp_host: mail.mail_smtp_host,
+        mail_smtp_port: mail.mail_smtp_port,
+        mail_smtp_secure: mail.mail_smtp_secure,
+        mail_smtp_user: mail.mail_smtp_user,
+        mail_smtp_password: mail.mail_smtp_password,
+        mail_from_name: mail.mail_from_name,
+        mail_from_email: mail.mail_from_email,
+        mail_imap_host: mail.mail_imap_host,
+        mail_imap_port: mail.mail_imap_port,
+        mail_imap_secure: mail.mail_imap_secure,
+        mail_imap_user: mail.mail_imap_user,
+        mail_imap_password: mail.mail_imap_password,
+      }),
     });
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      showSaveNotice('Could not save settings', 'error');
+      showSaveNotice(data.error || 'Could not save settings', 'error');
       return;
     }
+    if (data.site) setSite(data.site);
+    if (data.mail) setMail(applyMail(data.mail));
     showSaveNotice('Settings saved');
   }
 
-  if (!site) return null;
+  if (!site || !mail) return null;
 
   function set<K extends keyof SiteSettings>(key: K, value: SiteSettings[K]) {
     setSite((current) => (current ? { ...current, [key]: value } : current));
+  }
+
+  function setMailField<K extends keyof MailSettings>(key: K, value: MailSettings[K]) {
+    setMail((current) => (current ? { ...current, [key]: value } : current));
   }
 
   return (
@@ -69,6 +151,64 @@ export default function AdminSettingsPage() {
         <TextInput label="SEO title" value={site.seo_title} onChange={(e) => set('seo_title', e.target.value)} />
         <TextareaField label="SEO description" rows={3} value={site.seo_description} onChange={(e) => set('seo_description', e.target.value)} />
         <TextareaField label="Cookie notice" rows={3} value={site.cookie_notice} onChange={(e) => set('cookie_notice', e.target.value)} />
+        <h2 className="pt-4 text-xl font-semibold">Email</h2>
+        <p className="text-sm text-gray-600">
+          Outgoing mail sends replies and a copy of each contact-form note to the Email address above. Incoming mail is read when you choose Check mailbox on Messages. A blank password keeps the saved one.
+        </p>
+        <TextInput label="SMTP host" value={mail.mail_smtp_host} onChange={(e) => setMailField('mail_smtp_host', e.target.value)} />
+        <TextInput
+          label="SMTP port"
+          hint="587 for STARTTLS. 465 when SSL is on."
+          value={mail.mail_smtp_port}
+          onChange={(e) => setMailField('mail_smtp_port', e.target.value)}
+        />
+        <ToggleSwitch
+          helpKey="admin.settings.smtp_secure"
+          label="SMTP SSL"
+          checked={mail.mail_smtp_secure}
+          onChange={(next) => setMailField('mail_smtp_secure', next)}
+        />
+        <TextInput label="SMTP username" value={mail.mail_smtp_user} onChange={(e) => setMailField('mail_smtp_user', e.target.value)} autoComplete="off" />
+        <TextInput
+          label="SMTP password"
+          helpKey="admin.settings.smtp_password"
+          type="password"
+          autoComplete="new-password"
+          hint={passwordHint(mail.mail_smtp_password_set, mail.mail_smtp_password_hint)}
+          value={mail.mail_smtp_password}
+          onChange={(e) => setMailField('mail_smtp_password', e.target.value)}
+        />
+        <TextInput label="From name" value={mail.mail_from_name} onChange={(e) => setMailField('mail_from_name', e.target.value)} />
+        <TextInput
+          label="From address"
+          type="email"
+          hint="Leave blank to send from the SMTP username."
+          value={mail.mail_from_email}
+          onChange={(e) => setMailField('mail_from_email', e.target.value)}
+        />
+        <TextInput label="IMAP host" value={mail.mail_imap_host} onChange={(e) => setMailField('mail_imap_host', e.target.value)} />
+        <TextInput
+          label="IMAP port"
+          hint="993 when SSL is on. 143 for a plain connection."
+          value={mail.mail_imap_port}
+          onChange={(e) => setMailField('mail_imap_port', e.target.value)}
+        />
+        <ToggleSwitch
+          helpKey="admin.settings.imap_secure"
+          label="IMAP SSL"
+          checked={mail.mail_imap_secure}
+          onChange={(next) => setMailField('mail_imap_secure', next)}
+        />
+        <TextInput label="IMAP username" value={mail.mail_imap_user} onChange={(e) => setMailField('mail_imap_user', e.target.value)} autoComplete="off" />
+        <TextInput
+          label="IMAP password"
+          helpKey="admin.settings.imap_password"
+          type="password"
+          autoComplete="new-password"
+          hint={passwordHint(mail.mail_imap_password_set, mail.mail_imap_password_hint)}
+          value={mail.mail_imap_password}
+          onChange={(e) => setMailField('mail_imap_password', e.target.value)}
+        />
         <Button helpKey="admin.settings.save" type="submit">
           Save settings
         </Button>

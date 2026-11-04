@@ -35,6 +35,7 @@ import TrafficSource from './TrafficSource';
 import TrafficCountry from './TrafficCountry';
 import TrafficKind from './TrafficKind';
 import MarketingCampaign from './MarketingCampaign';
+import MailboxMessage from './MailboxMessage';
 
 Product.hasMany(ProductImage, { foreignKey: 'product_id', as: 'images', onDelete: 'CASCADE' });
 ProductImage.belongsTo(Product, { foreignKey: 'product_id' });
@@ -62,6 +63,8 @@ Customer.hasMany(Order, { foreignKey: 'customer_id', as: 'orders' });
 Order.belongsTo(Customer, { foreignKey: 'customer_id', as: 'customer' });
 Order.hasMany(OrderItem, { foreignKey: 'order_id', as: 'items', onDelete: 'CASCADE' });
 OrderItem.belongsTo(Order, { foreignKey: 'order_id' });
+OrderItem.belongsTo(Product, { foreignKey: 'product_id', as: 'product' });
+OrderItem.belongsTo(Variant, { foreignKey: 'variant_id', as: 'variant' });
 
 async function syncDatabase() {
   try {
@@ -109,4 +112,5 @@ export {
   TrafficCountry,
   TrafficKind,
   MarketingCampaign,
+  MailboxMessage,
 };
