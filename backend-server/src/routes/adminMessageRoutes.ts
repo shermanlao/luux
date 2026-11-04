@@ -69,7 +69,7 @@ router.post(
     const site = await SiteSetting.findByPk(1);
     if (!site) return notFound(res, 'Settings');
     if (!canReadMail(site)) {
-      res.status(400).json({ error: 'Incoming mail is not set up. Add the mailbox details on Settings.' });
+      res.status(400).json({ error: 'Incoming mail is not set up. Paste the Agentic Mail API token on Settings.' });
       return;
     }
     const imported = await syncInbox(site);
@@ -105,7 +105,7 @@ router.post(
     const site = await SiteSetting.findByPk(1);
     if (!site) return notFound(res, 'Settings');
     if (!canSendMail(site)) {
-      res.status(400).json({ error: 'Email is not set up. Add the outgoing mail details on Settings.' });
+      res.status(400).json({ error: 'Email is not set up. Paste the Agentic Mail API token on Settings.' });
       return;
     }
     const subject = replySubject(message.subject);
@@ -114,12 +114,14 @@ router.post(
       subject,
       text,
       inReplyTo: message.message_id || undefined,
+      replyUid: message.remote_uid,
+      replyFolder: message.remote_folder || undefined,
     });
     await MailboxMessage.create({
       source: message.source,
       direction: 'out',
       name: (site.mail_from_name || site.company_name || 'LUUX').trim(),
-      email: (site.mail_from_email || site.mail_smtp_user || '').trim(),
+      email: (site.mail_from_email || site.contact_email || site.mail_smtp_user || '').trim(),
       subject,
       body: text,
       message_id: messageId,

@@ -178,8 +178,8 @@ export default function AdminMessagesPage() {
       {!loading && (!mail.smtp || !mail.imap) ? (
         <p className="mb-4 text-sm text-gray-600">
           Contact-form notes are saved here.
-          {!mail.smtp ? ' Add outgoing mail on Settings to send replies and a copy of each contact-form note.' : ''}
-          {!mail.imap ? ' Add incoming mail on Settings to read the inbox.' : ''}{' '}
+          {!mail.smtp ? ' Add the Agentic Mail API token on Settings to send replies and a copy of each contact-form note.' : ''}
+          {!mail.imap ? ' Add the API token on Settings to read the inbox.' : ''}{' '}
           <Button helpKey="admin.nav.settings" variant="ghost" href="/admin/settings">
             Settings
           </Button>

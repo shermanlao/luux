@@ -39,7 +39,7 @@ export function asyncHandler(fn: ExpressHandler) {
         next?.(error);
         return;
       }
-      const status = error instanceof UniqueConstraintError ? 409 : error instanceof ValidationError ? 400 : 500;
+      const status = error instanceof UniqueConstraintError ? 409 : error instanceof ValidationError || (error instanceof Error && error.name === 'MailRequestError') ? 400 : 500;
       res.status(status).json({ error: clientError(error) });
     });
   };

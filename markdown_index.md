@@ -1,6 +1,6 @@
 # LUUX guides
 
-- [Admin](docs/admin.md) — staff login, products, collections, pages, shipping, orders
+- [Admin](docs/admin.md) — staff login, products, collections, pages, shipping, orders, messages, and email
 - [Customer accounts](docs/account.md) — email sign-in, password confirmation, Google and Facebook
 - [Shopify import](docs/shopify-import.md) — copy the live Shopify catalog into SQLite or Postgres
 - [Stripe](docs/stripe.md) — Checkout, webhook, and test cards

@@ -1,6 +1,8 @@
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import nodemailer from 'nodemailer';
+import { readMailApiInbox, sendMailApi } from './hostinger-mail';
+import { MailRequestError } from './mail-error';
 import ContactInquiry from '../models/ContactInquiry';
 import MailboxMessage from '../models/MailboxMessage';
 import SiteSetting from '../models/SiteSetting';
@@ -18,32 +20,47 @@ function secureFlag(value: string): boolean {
 }
 
 function fromEmailOf(site: SiteSetting): string {
-  return (site.mail_from_email || site.mail_smtp_user || '').trim();
+  return (site.mail_from_email || site.mail_smtp_user || site.contact_email || '').trim();
+}
+
+export function mailApiToken(site: SiteSetting): string {
+  return String(site.mail_api_token || '').trim();
+}
+
+export function canUseMailApi(site: SiteSetting): boolean {
+  return mailApiToken(site).length > 0;
+}
+
+function preferredMailbox(site: SiteSetting): string[] {
+  return [site.mail_from_email, site.contact_email, site.mail_smtp_user, site.mail_imap_user];
 }
 
 export function canSendMail(site: SiteSetting): boolean {
+  if (canUseMailApi(site)) return true;
   return Boolean(site.mail_smtp_host.trim() && site.mail_smtp_user.trim() && site.mail_smtp_password && fromEmailOf(site).includes('@'));
 }
 
 export function canReadMail(site: SiteSetting): boolean {
+  if (canUseMailApi(site)) return true;
   return Boolean(site.mail_imap_host.trim() && site.mail_imap_user.trim() && site.mail_imap_password);
 }
 
 function publicMailError(error: unknown): Error {
+  if (error instanceof MailRequestError) return error;
   const err = error as { code?: string; message?: string; authenticationFailed?: boolean };
   const code = String(err?.code || '');
   const raw = String(err?.message || '');
   console.error('Mail error:', code || 'unknown', raw.slice(0, 300));
   if (err?.authenticationFailed || code === 'EAUTH' || /auth|credentials|invalid login|username and password/i.test(raw)) {
-    return new Error('The mail server rejected the username or password.');
+    return new MailRequestError('The mail server rejected the username or password.');
   }
   if (
     ['ETIMEDOUT', 'ESOCKET', 'ECONNECTION', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNRESET', 'EDNS', 'ETIMEDOUT'].includes(code) ||
     /timed out|timeout|getaddrinfo|certificate|ENOTFOUND|ECONNREFUSED/i.test(raw)
   ) {
-    return new Error('Could not reach the mail server. Check the host, port, and security setting.');
+    return new MailRequestError('Could not reach the mail server. Check the host, port, and security setting.');
   }
-  return new Error('Could not complete the mail request.');
+  return new MailRequestError('Could not complete the mail request.');
 }
 
 function textFromMail(parsed: ParsedMail): string {
@@ -72,10 +89,24 @@ function referenceIds(parsed: ParsedMail): string[] {
 
 export async function sendSiteMail(
   site: SiteSetting,
-  options: { to: string; subject: string; text: string; replyTo?: string; inReplyTo?: string }
+  options: { to: string; subject: string; text: string; replyTo?: string; inReplyTo?: string; replyUid?: number | null; replyFolder?: string }
 ): Promise<string> {
   if (!canSendMail(site)) {
-    throw new Error('Email is not set up. Add the outgoing mail details on Settings.');
+    throw new MailRequestError('Email is not set up. Paste the Agentic Mail API token on Settings.');
+  }
+  if (canUseMailApi(site)) {
+    try {
+      return await sendMailApi(mailApiToken(site), preferredMailbox(site), {
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        displayName: (site.mail_from_name || site.company_name || 'LUUX').trim(),
+        replyUid: options.replyUid || undefined,
+        replyFolder: options.replyFolder || undefined,
+      });
+    } catch (error) {
+      throw publicMailError(error);
+    }
   }
   const port = portOf(site.mail_smtp_port, 587);
   const secure = secureFlag(site.mail_smtp_secure) || port === 465;
@@ -175,13 +206,34 @@ let inboxSyncing = false;
 
 export async function syncInbox(site: SiteSetting): Promise<number> {
   if (!canReadMail(site)) {
-    throw new Error('Incoming mail is not set up. Add the mailbox details on Settings.');
+    throw new MailRequestError('Incoming mail is not set up. Paste the Agentic Mail API token on Settings.');
   }
   if (inboxSyncing) {
-    throw new Error('A mailbox check is already running.');
+    throw new MailRequestError('A mailbox check is already running.');
   }
   inboxSyncing = true;
   try {
+    if (canUseMailApi(site)) {
+      try {
+        const messages = await readMailApiInbox(mailApiToken(site), preferredMailbox(site), ownAddresses(site));
+        return await storeIncoming(
+          site,
+          messages.map((message) => ({
+            name: message.name,
+            address: message.address,
+            subject: message.subject,
+            body: message.body,
+            messageId: message.messageId,
+            references: message.inReplyTo ? [message.inReplyTo] : [],
+            remoteUid: message.uid,
+            remoteFolder: message.folder,
+            createdAt: message.createdAt,
+          }))
+        );
+      } catch (error) {
+        throw publicMailError(error);
+      }
+    }
     const sources = await readInbox(site);
     return await storeInboxMessages(site, sources);
   } finally {
@@ -224,42 +276,64 @@ async function readInbox(site: SiteSetting): Promise<Buffer[]> {
   }
 }
 
-async function storeInboxMessages(site: SiteSetting, sources: Buffer[]): Promise<number> {
-  const own = new Set(
+function ownAddresses(site: SiteSetting): Set<string> {
+  return new Set(
     [site.mail_imap_user, site.mail_smtp_user, site.mail_from_email, site.contact_email]
       .map((item) => String(item || '').trim().toLowerCase())
       .filter((item) => item.includes('@'))
   );
+}
+
+type IncomingMail = {
+  name: string;
+  address: string;
+  subject: string;
+  body: string;
+  messageId: string;
+  references: string[];
+  remoteUid: number | null;
+  remoteFolder: string;
+  createdAt: Date | null;
+};
+
+async function storeIncoming(site: SiteSetting, messages: IncomingMail[]): Promise<number> {
+  const own = ownAddresses(site);
   let imported = 0;
-  for (const source of sources) {
-    const parsed = await simpleParser(source);
-    const from = parsed.from?.value?.[0];
-    const address = String(from?.address || '').trim().toLowerCase().slice(0, 200);
+  for (const message of messages) {
+    const address = message.address.trim().toLowerCase().slice(0, 200);
     if (!address || own.has(address)) continue;
-    const messageId = String(parsed.messageId || '').trim().slice(0, 500);
+    const messageId = message.messageId.trim().slice(0, 500);
     if (messageId) {
       const duplicate = await MailboxMessage.findOne({ where: { message_id: messageId } });
       if (duplicate) continue;
     }
+    if (message.remoteUid) {
+      const duplicate = await MailboxMessage.findOne({
+        where: { remote_uid: message.remoteUid, remote_folder: message.remoteFolder || 'INBOX' },
+      });
+      if (duplicate) continue;
+    }
     let parentId: number | null = null;
-    for (const reference of referenceIds(parsed)) {
+    for (const reference of message.references) {
       const prior = await MailboxMessage.findOne({ where: { message_id: reference } });
       if (!prior) continue;
       parentId = prior.parent_id || prior.id;
       break;
     }
-    const subject = String(parsed.subject || '(no subject)').replace(/\s+/g, ' ').trim().slice(0, 255) || '(no subject)';
     await MailboxMessage.create({
       source: 'email',
       direction: 'in',
-      name: String(from?.name || '').replace(/\s+/g, ' ').trim().slice(0, 200),
+      name: message.name,
       email: address,
-      subject,
-      body: textFromMail(parsed),
+      subject: message.subject,
+      body: message.body,
       message_id: messageId,
       inquiry_id: null,
       parent_id: parentId,
       read: false,
+      remote_uid: message.remoteUid,
+      remote_folder: message.remoteFolder,
+      ...(message.createdAt ? { createdAt: message.createdAt } : {}),
     });
     if (parentId) {
       const parent = await MailboxMessage.findByPk(parentId);
@@ -271,4 +345,25 @@ async function storeInboxMessages(site: SiteSetting, sources: Buffer[]): Promise
     imported += 1;
   }
   return imported;
+}
+
+async function storeInboxMessages(site: SiteSetting, sources: Buffer[]): Promise<number> {
+  const messages: IncomingMail[] = [];
+  for (const source of sources) {
+    const parsed = await simpleParser(source);
+    const from = parsed.from?.value?.[0];
+    const subject = String(parsed.subject || '(no subject)').replace(/\s+/g, ' ').trim().slice(0, 255) || '(no subject)';
+    messages.push({
+      name: String(from?.name || '').replace(/\s+/g, ' ').trim().slice(0, 200),
+      address: String(from?.address || ''),
+      subject,
+      body: textFromMail(parsed),
+      messageId: String(parsed.messageId || ''),
+      references: referenceIds(parsed),
+      remoteUid: null,
+      remoteFolder: '',
+      createdAt: null,
+    });
+  }
+  return storeIncoming(site, messages);
 }

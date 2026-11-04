@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { asyncHandler, notFound } from '../lib/asyncHandler';
 import { requireAdmin } from '../lib/authMiddleware';
+import { resolveMailbox } from '../lib/hostinger-mail';
+import { MailRequestError } from '../lib/mail-error';
 import { serializePage, serializeShipping, serializeSite } from '../lib/serialize';
 import ContactInquiry from '../models/ContactInquiry';
 import Page from '../models/Page';
@@ -94,6 +96,27 @@ router.put(
   })
 );
 
+router.post(
+  '/settings/mail-api',
+  asyncHandler(async (req, res) => {
+    const site = await SiteSetting.findByPk(1);
+    if (!site) return notFound(res, 'Settings');
+    const pasted = String(req.body?.mail_api_token || '').trim().replace(/^Bearer\s+/i, '');
+    const token = pasted || String(site.mail_api_token || '').trim();
+    if (!token) {
+      res.status(400).json({ error: 'Paste the Agentic Mail API token first.' });
+      return;
+    }
+    try {
+      const mailbox = await resolveMailbox(token, [site.mail_from_email, site.contact_email, site.mail_smtp_user, site.mail_imap_user]);
+      res.json({ address: mailbox.address });
+    } catch (error) {
+      const message = error instanceof MailRequestError ? error.message : 'Could not reach the mail API.';
+      res.status(400).json({ error: message });
+    }
+  })
+);
+
 const INTEGRATION_SECRETS = [
   'ai_api_key',
   'stripe_secret_key',
@@ -115,6 +138,7 @@ function secretHint(value: string): { set: boolean; hint: string } {
 function serializeMail(site: SiteSetting) {
   const smtp = secretHint(site.mail_smtp_password || '');
   const imap = secretHint(site.mail_imap_password || '');
+  const api = secretHint(site.mail_api_token || '');
   return {
     mail_smtp_host: site.mail_smtp_host || '',
     mail_smtp_port: site.mail_smtp_port || '587',
@@ -130,6 +154,8 @@ function serializeMail(site: SiteSetting) {
     mail_imap_user: site.mail_imap_user || '',
     mail_imap_password_set: imap.set,
     mail_imap_password_hint: imap.hint,
+    mail_api_token_set: api.set,
+    mail_api_token_hint: api.hint,
   };
 }
 
@@ -165,6 +191,10 @@ function applyMailSettings(site: SiteSetting, body: Record<string, unknown>): st
     const value = String(body[key]).trim();
     if (!value) continue;
     site[key] = value;
+  }
+  if (body.mail_api_token != null) {
+    const token = String(body.mail_api_token).trim().replace(/^Bearer\s+/i, '').slice(0, 2000);
+    if (token) site.mail_api_token = token;
   }
   return null;
 }

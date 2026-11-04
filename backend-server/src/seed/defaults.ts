@@ -103,7 +103,9 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.settings.imap_password', title: 'IMAP password', body: 'Password for the inbox. Leave blank to keep the saved password.' },
   { helpKey: 'admin.settings.smtp_secure', title: 'SMTP SSL', body: 'Turn this on for port 465. Leave it off for port 587.' },
   { helpKey: 'admin.settings.imap_secure', title: 'IMAP SSL', body: 'Turn this on for port 993. Leave it off for port 143.' },
-  { helpKey: 'admin.messages.sync', title: 'Check mailbox', body: 'Read recent mail from the inbox in Settings.' },
+  { helpKey: 'admin.settings.mail_api_token', title: 'Agentic Mail API token', body: 'Paste the token from Hostinger, Agentic mail, API access. Leave blank to keep the saved token.' },
+  { helpKey: 'admin.settings.mail_api_check', title: 'Check API', body: 'Confirm this token can reach the shop mailbox.' },
+  { helpKey: 'admin.messages.sync', title: 'Check mailbox', body: 'Read recent mail through the Agentic Mail API, or through IMAP when no API token is saved.' },
   { helpKey: 'admin.messages.filter_all', title: 'All messages', body: 'Show contact-form notes and email together.' },
   { helpKey: 'admin.messages.filter_contact', title: 'Contact form', body: 'Show notes sent from the contact page.' },
   { helpKey: 'admin.messages.filter_email', title: 'Email', body: 'Show mail read from the inbox.' },
@@ -308,7 +310,24 @@ const MAIL_COLUMNS: Array<{ name: string; type: typeof DataTypes.STRING | typeof
   { name: 'mail_imap_secure', type: DataTypes.STRING, defaultValue: '1' },
   { name: 'mail_imap_user', type: DataTypes.STRING, defaultValue: '' },
   { name: 'mail_imap_password', type: DataTypes.TEXT, defaultValue: '' },
+  { name: 'mail_api_token', type: DataTypes.TEXT, defaultValue: '' },
 ];
+
+async function ensureMailboxMessageColumns(): Promise<void> {
+  const queryInterface = sequelize.getQueryInterface();
+  const table = await queryInterface.describeTable('mailbox_messages').catch(() => null);
+  if (!table) return;
+  if (!table.remote_uid) {
+    await queryInterface.addColumn('mailbox_messages', 'remote_uid', { type: DataTypes.INTEGER, allowNull: true });
+  }
+  if (!table.remote_folder) {
+    await queryInterface.addColumn('mailbox_messages', 'remote_folder', {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: '',
+    });
+  }
+}
 
 async function ensureMailColumns(): Promise<void> {
   const queryInterface = sequelize.getQueryInterface();
@@ -378,6 +397,7 @@ export async function ensureSiteSettings(): Promise<SiteSetting> {
   await ensureCookieNoticeColumn();
   await ensureIntegrationColumns();
   await ensureMailColumns();
+  await ensureMailboxMessageColumns();
   const existing = await SiteSetting.findByPk(1);
   if (existing) {
     let changed = applyEnglishCopy(existing);

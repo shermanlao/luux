@@ -25,6 +25,9 @@ type MailSettings = {
   mail_imap_password: string;
   mail_imap_password_set: boolean;
   mail_imap_password_hint: string;
+  mail_api_token: string;
+  mail_api_token_set: boolean;
+  mail_api_token_hint: string;
 };
 
 const EMPTY_MAIL: MailSettings = {
@@ -44,6 +47,9 @@ const EMPTY_MAIL: MailSettings = {
   mail_imap_password: '',
   mail_imap_password_set: false,
   mail_imap_password_hint: '',
+  mail_api_token: '',
+  mail_api_token_set: false,
+  mail_api_token_hint: '',
 };
 
 function applyMail(mail?: Partial<MailSettings>): MailSettings {
@@ -56,6 +62,7 @@ function applyMail(mail?: Partial<MailSettings>): MailSettings {
     mail_imap_secure: mail?.mail_imap_secure !== false,
     mail_smtp_password: '',
     mail_imap_password: '',
+    mail_api_token: '',
   };
 }
 
@@ -67,6 +74,8 @@ function passwordHint(set: boolean, hint: string): string {
 export default function AdminSettingsPage() {
   const [site, setSite] = useState<SiteSettings | null>(null);
   const [mail, setMail] = useState<MailSettings | null>(null);
+  const [checkingApi, setCheckingApi] = useState(false);
+  const [apiStatus, setApiStatus] = useState('');
 
   useEffect(() => {
     fetch('/api/admin/settings')
@@ -97,6 +106,7 @@ export default function AdminSettingsPage() {
         mail_imap_secure: mail.mail_imap_secure,
         mail_imap_user: mail.mail_imap_user,
         mail_imap_password: mail.mail_imap_password,
+        mail_api_token: mail.mail_api_token,
       }),
     });
     const data = await response.json().catch(() => ({}));
@@ -117,6 +127,25 @@ export default function AdminSettingsPage() {
 
   function setMailField<K extends keyof MailSettings>(key: K, value: MailSettings[K]) {
     setMail((current) => (current ? { ...current, [key]: value } : current));
+  }
+
+  async function checkApi() {
+    if (!mail) return;
+    setCheckingApi(true);
+    setApiStatus('');
+    try {
+      const response = await fetch('/api/admin/settings/mail-api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mail_api_token: mail.mail_api_token }),
+      });
+      const data = await response.json().catch(() => ({}));
+      setApiStatus(response.ok && data.address ? `Connected to ${data.address}.` : data.error || 'Could not reach the mail API.');
+    } catch {
+      setApiStatus('Could not reach the mail API.');
+    } finally {
+      setCheckingApi(false);
+    }
   }
 
   return (
@@ -153,7 +182,23 @@ export default function AdminSettingsPage() {
         <TextareaField label="Cookie notice" rows={3} value={site.cookie_notice} onChange={(e) => set('cookie_notice', e.target.value)} />
         <h2 className="pt-4 text-xl font-semibold">Email</h2>
         <p className="text-sm text-gray-600">
-          Outgoing mail sends replies and a copy of each contact-form note to the Email address above. Incoming mail is read when you choose Check mailbox on Messages. A blank password keeps the saved one.
+          Paste the token from Hostinger → Emails → Agentic mail → API access. That token is the mail setup. Messages can send replies and read the inbox without an SMTP or IMAP server. A blank token keeps the saved one.
+        </p>
+        <TextInput
+          label="Agentic Mail API token"
+          helpKey="admin.settings.mail_api_token"
+          type="password"
+          autoComplete="new-password"
+          hint={passwordHint(mail.mail_api_token_set, mail.mail_api_token_hint).replace('password', 'token')}
+          value={mail.mail_api_token}
+          onChange={(e) => setMailField('mail_api_token', e.target.value)}
+        />
+        <Button helpKey="admin.settings.mail_api_check" type="button" variant="secondary" disabled={checkingApi} onClick={() => void checkApi()}>
+          {checkingApi ? 'Checking…' : 'Check API'}
+        </Button>
+        {apiStatus ? <p className="text-sm text-gray-600">{apiStatus}</p> : null}
+        <p className="text-sm text-gray-600">
+          Server mail is optional. Leave these fields empty while the API token above is saved. A blank password keeps the saved one.
         </p>
         <TextInput label="SMTP host" value={mail.mail_smtp_host} onChange={(e) => setMailField('mail_smtp_host', e.target.value)} />
         <TextInput

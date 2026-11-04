@@ -56,6 +56,7 @@ class SiteSetting extends Model {
   declare mail_imap_secure: string;
   declare mail_imap_user: string;
   declare mail_imap_password: string;
+  declare mail_api_token: string;
 }
 
 SiteSetting.init(
@@ -131,6 +132,7 @@ SiteSetting.init(
     mail_imap_secure: { type: DataTypes.STRING, allowNull: false, defaultValue: '1' },
     mail_imap_user: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     mail_imap_password: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    mail_api_token: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
   },
   { sequelize, modelName: 'SiteSetting', tableName: 'site_settings' }
 );
