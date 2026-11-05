@@ -116,7 +116,7 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.messages.filter_chat', title: 'Chat', body: 'Show live chats from the shop.' },
   { helpKey: 'admin.messages.draft', title: 'Draft reply', body: 'Ask the AI to fill a reply. Nothing is sent until you choose Send reply.' },
   { helpKey: 'admin.settings.mail_webhook', title: 'Mail webhook secret', body: 'Secret from Hostinger for new-mail notifications. Leave blank to keep the saved secret.' },
-  { helpKey: 'shop.chat.open', title: 'Chat', body: 'Ask the shop a question.' },
+  { helpKey: 'shop.chat.open', title: 'Chat', body: 'Open a chat with the shop.' },
   { helpKey: 'shop.chat.send', title: 'Send', body: 'Send this message to the shop.' },
   { helpKey: 'shop.chat.handoff', title: 'Ask a person', body: 'Stop automatic replies and leave this chat for the shop.' },
   { helpKey: 'admin.messages.close', title: 'Close', body: 'Close this message.' },

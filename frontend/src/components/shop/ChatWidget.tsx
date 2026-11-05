@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import HelpButton from '@/components/admin/HelpButton';
 import Button from '@/components/ui/Button';
 
 type ChatLine = {
@@ -107,9 +108,23 @@ export default function ChatWidget() {
           </form>
         </div>
       ) : null}
-      <Button helpKey="shop.chat.open" type="button" onClick={() => setOpen((current) => !current)}>
-        Chat
-      </Button>
+      <HelpButton
+        helpKey="shop.chat.open"
+        type="button"
+        aria-label="Chat"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg hover:bg-[#5f8576]"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true">
+          <path
+            d="M6 6.5h12a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H10l-4 3v-3H6a1.5 1.5 0 0 1-1.5-1.5V8A1.5 1.5 0 0 1 6 6.5z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </HelpButton>
     </div>
   );
 }
