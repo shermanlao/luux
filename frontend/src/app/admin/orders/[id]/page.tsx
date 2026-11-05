@@ -7,6 +7,7 @@ import AdminTable from '@/components/ui/AdminTable';
 import AlertBanner from '@/components/ui/AlertBanner';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import { invoiceLines, OrderAddressText, shippingLines, shipsToInvoice } from '@/components/admin/OrderAddress';
 import { formatHkd } from '@shared/slugify';
 import type { Order } from '@/lib/types';
 
@@ -15,13 +16,6 @@ function formatWhen(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleString('en-HK', { dateStyle: 'medium', timeStyle: 'short' });
-}
-
-function addressLines(order: Order) {
-  const city = [order.shipping_city, order.shipping_region, order.shipping_postal].filter(Boolean).join(' ');
-  return [order.shipping_name, order.shipping_phone, order.shipping_line1, order.shipping_line2, city, order.shipping_country].filter(
-    (line) => line && line.trim()
-  );
 }
 
 function lineTotal(quantity: number, unitPrice: string) {
@@ -94,7 +88,9 @@ export default function AdminOrderPage() {
 
   const placed = formatWhen(order.createdAt);
   const updated = formatWhen(order.updatedAt);
-  const address = addressLines(order);
+  const invoice = invoiceLines(order);
+  const shipping = shippingLines(order);
+  const sameAddress = shipsToInvoice(order);
   const actions = (
     <>
       {order.status === 'paid' ? (
@@ -177,6 +173,10 @@ export default function AdminOrderPage() {
                 <dt className="text-gray-500">Email</dt>
                 <dd>{order.email}</dd>
               </div>
+              <div>
+                <dt className="text-gray-500">Contact number</dt>
+                <dd>{order.shipping_phone?.trim() || '—'}</dd>
+              </div>
               {placed ? (
                 <div>
                   <dt className="text-gray-500">Placed</dt>
@@ -197,14 +197,22 @@ export default function AdminOrderPage() {
               ) : null}
             </dl>
           </Card>
+          {invoice.length ? (
+            <Card>
+              <h2 className="mb-4 text-lg font-semibold">Invoice address</h2>
+              <address className="text-sm not-italic">
+                <OrderAddressText lines={invoice} />
+              </address>
+            </Card>
+          ) : null}
           <Card>
             <h2 className="mb-4 text-lg font-semibold">Shipping</h2>
             {order.shipping_rate_name ? <p className="mb-3 text-sm text-gray-500">{order.shipping_rate_name}</p> : null}
-            {address.length ? (
+            {sameAddress ? (
+              <p className="text-sm">Same as invoice address</p>
+            ) : shipping.length ? (
               <address className="text-sm not-italic">
-                {address.map((line, index) => (
-                  <div key={`${index}-${line}`}>{line}</div>
-                ))}
+                <OrderAddressText lines={shipping} />
               </address>
             ) : (
               <p className="text-sm text-gray-500">No shipping address.</p>

@@ -63,6 +63,7 @@ export function HelpLink({
   target,
   rel,
   ariaLabel,
+  download,
 }: {
   helpKey: string;
   href: string;
@@ -72,12 +73,13 @@ export function HelpLink({
   target?: string;
   rel?: string;
   ariaLabel?: string;
+  download?: string;
 }) {
   const tip = useHelpTip(helpKey, title);
-  const nativeAnchor = Boolean(target) || href.startsWith('mailto:') || href.startsWith('tel:');
+  const nativeAnchor = Boolean(target) || Boolean(download) || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('/api/');
   if (nativeAnchor) {
     return (
-      <a href={href} target={target} rel={rel} data-help-key={helpKey} title={tip || title || undefined} aria-label={ariaLabel} className={className}>
+      <a href={href} target={target} rel={rel} download={download} data-help-key={helpKey} title={tip || title || undefined} aria-label={ariaLabel} className={className}>
         {children}
       </a>
     );

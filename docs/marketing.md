@@ -42,47 +42,42 @@ Staff use the admin cookie. `app` defaults to `luux`.
 | Method | Path | Use |
 | --- | --- | --- |
 | GET | `/api/marketing/v1/overview` | Views, visitor type, countries, sources, average stay, top paths, paid totals, connected channels, saved campaigns |
-| POST | `/api/marketing/v1/drafts` | Draft from shop data when `catalog` is omitted |
+| POST | `/api/marketing/v1/drafts` | Draft from shop data when `catalog` is omitted. A marketing key always uses shop data |
 | PUT | `/api/marketing/v1/drafts/:id` | Edit caption, image, link, and channels while it is not posted |
 | POST | `/api/marketing/v1/drafts/:id/publish` | Post the selected channels |
 | POST | `/api/marketing/v1/keys` | Staff only. Returns a new marketing key once |
 
-## Other apps
+## Marketing key
 
-Generate a marketing key on Integrations. It is shown once, then only the last four characters. Send it as `Authorization: Bearer <key>`.
+Generate a key on `/admin/integrations`. It is shown once, then only the last four characters. An outside marketer sends it as `Authorization: Bearer <key>` to `https://luuxmart.com`. Call it from that app’s server. The browser CORS list is not widened.
 
-`POST /api/marketing/v1/drafts` with a catalog. This shop’s saved AI key writes the draft.
+The key reads this shop only. `app` defaults to `luux`. Another app name is refused. It cannot change products, prices, orders, inventory, Stripe, the AI key, or the social tokens. It does not return customer names, email, phone, addresses, or passwords. Pinterest is not a posting channel.
 
-```json
-{
-  "app": "other-shop",
-  "catalog": [{ "title": "", "url": "", "image": "", "price": "" }],
-  "page_views": [{ "day": "2026-11-01", "path": "/", "count": 12 }],
-  "orders": [{ "day": "2026-11-01", "total": "80.00", "count": 1 }],
-  "channels": ["facebook", "threads"]
-}
+| Method | Path | What the key does |
+| --- | --- | --- |
+| GET | `/api/marketing/v1/overview` | Last 30 days: views, visitor type, countries, sources, average stay, top paths, paid totals, connected channels, saved campaigns |
+| GET | `/api/marketing/v1/drafts/:id` | One campaign document |
+| POST | `/api/marketing/v1/drafts` | Draft from published products, traffic, and paid totals. An empty body is enough. Optional `channels` limits the draft to Facebook, Instagram, or Threads that already have tokens |
+| PUT | `/api/marketing/v1/drafts/:id` | Edit caption, image, link, and channels while it is not posted |
+| POST | `/api/marketing/v1/drafts/:id/publish` | Post the selected channels with the tokens saved on Integrations. A `tokens` object in the body is ignored |
+| POST | `/api/marketing/v1/keys` | Staff session only. The marketing key cannot mint a new key |
+
+Nothing is posted until publish. A channel that already posted is not posted again. A failed channel can be retried. A channel with no saved token comes back as `failed`, and the draft can still be exported as JSON.
+
+```http
+GET /api/marketing/v1/overview
+Authorization: Bearer <marketing key>
 ```
 
-Other apps keep their own channel tokens and send them only on publish:
+```http
+POST /api/marketing/v1/drafts
+Authorization: Bearer <marketing key>
+Content-Type: application/json
 
-`POST /api/marketing/v1/drafts/:id/publish`
-
-```json
-{
-  "tokens": {
-    "facebook_page_id": "",
-    "facebook_page_token": "",
-    "instagram_account_id": "",
-    "instagram_token": "",
-    "threads_user_id": "",
-    "threads_token": ""
-  }
-}
+{}
 ```
 
-LUUX ignores that body and uses the tokens saved on Integrations. A channel that already posted is not posted again. A failed channel can be retried.
-
-The browser CORS list is not widened. Call the API from the other app’s server.
+A signed-in staff request may still send a catalog for another app name. That path is not available to the marketing key.
 
 ## Where to paste Meta tokens
 
@@ -92,4 +87,4 @@ On `/admin/integrations`, under Social posting:
 - Instagram: Instagram account id and token. The image must be a public `https` URL, so a draft can be saved locally and a live post needs `SITE_ORIGIN` to be the public site.
 - Threads: Threads user id and token. The post is text.
 
-`facebook_url`, `instagram_url`, and `threads_url` on Settings are public profile links. They are not posting credentials. A channel without a token stays unchecked. The draft can still be copied or exported as JSON.
+`facebook_url`, `instagram_url`, `threads_url`, and `pinterest_url` on Settings are public profile links shown as icons in the shop footer. They are not posting credentials. A channel without a token stays unchecked. The draft can still be copied or exported as JSON.

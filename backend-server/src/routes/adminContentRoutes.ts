@@ -1,9 +1,12 @@
 import { Router } from 'express';
+import { Op } from 'sequelize';
 import { asyncHandler, notFound } from '../lib/asyncHandler';
 import { requireAdmin } from '../lib/authMiddleware';
 import { resolveMailbox } from '../lib/hostinger-mail';
 import { MailRequestError } from '../lib/mail-error';
 import { serializePage, serializeShipping, serializeSite } from '../lib/serialize';
+import { slugify } from '../lib/shared/slugify';
+import { normalizeShippingAmount, normalizeShippingCountries } from '../lib/shared/shipping';
 import ContactInquiry from '../models/ContactInquiry';
 import Page from '../models/Page';
 import ShippingRate from '../models/ShippingRate';
@@ -277,17 +280,86 @@ router.get(
   })
 );
 
+async function nextShippingCode(name: string): Promise<string> {
+  const base = slugify(name);
+  const root = base === 'paytest' ? 'rate' : base;
+  for (let n = 1; n < 100; n += 1) {
+    const code = (n === 1 ? root : `${root}-${n}`).slice(0, 80);
+    const taken = await ShippingRate.findOne({ where: { code } });
+    if (!taken) return code;
+  }
+  throw new Error('Could not create a shipping option.');
+}
+
+router.post(
+  '/shipping',
+  asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    const name = String(body.name || '').trim().slice(0, 255);
+    const amount = normalizeShippingAmount(body.amount);
+    if (!name) {
+      res.status(400).json({ error: 'Name is required.' });
+      return;
+    }
+    if (!amount) {
+      res.status(400).json({ error: 'Enter an amount in HKD.' });
+      return;
+    }
+    const highest = await ShippingRate.max('sort_order', { where: { code: { [Op.ne]: 'paytest' } } });
+    const rate = await ShippingRate.create({
+      name,
+      code: await nextShippingCode(name),
+      amount,
+      countries: normalizeShippingCountries(body.countries),
+      sort_order: (Number(highest) || 0) + 1,
+    });
+    res.status(201).json({ rate: serializeShipping(rate) });
+  })
+);
+
 router.put(
   '/shipping/:id',
   asyncHandler(async (req, res) => {
     const rate = await ShippingRate.findByPk(req.params.id);
     if (!rate) return notFound(res, 'Shipping rate');
+    if (rate.code === 'paytest') {
+      res.status(400).json({ error: 'This shipping rate cannot be edited.' });
+      return;
+    }
     const body = req.body || {};
-    if (body.name != null) rate.name = String(body.name);
-    if (body.amount != null) rate.amount = Number(body.amount).toFixed(2);
-    if (body.countries != null) rate.countries = String(body.countries);
+    if (body.name != null) {
+      const name = String(body.name).trim().slice(0, 255);
+      if (!name) {
+        res.status(400).json({ error: 'Name is required.' });
+        return;
+      }
+      rate.name = name;
+    }
+    if (body.amount != null) {
+      const amount = normalizeShippingAmount(body.amount);
+      if (!amount) {
+        res.status(400).json({ error: 'Enter an amount in HKD.' });
+        return;
+      }
+      rate.amount = amount;
+    }
+    if (body.countries != null) rate.countries = normalizeShippingCountries(body.countries);
     await rate.save();
     res.json({ rate: serializeShipping(rate) });
+  })
+);
+
+router.delete(
+  '/shipping/:id',
+  asyncHandler(async (req, res) => {
+    const rate = await ShippingRate.findByPk(req.params.id);
+    if (!rate) return notFound(res, 'Shipping rate');
+    if (rate.code === 'paytest') {
+      res.status(400).json({ error: 'This shipping rate cannot be deleted.' });
+      return;
+    }
+    await rate.destroy();
+    res.json({ ok: true });
   })
 );
 

@@ -419,10 +419,12 @@ export default function AdminProductEditorPage() {
         paytest: true,
         items: [{ variant_id: variant.id, quantity: 1 }],
         email: 'hello@luuxmart.com',
-        shipping_name: 'LUUX test',
-        shipping_line1: 'Payment test',
-        shipping_city: 'Hong Kong',
-        shipping_country: 'ZZ',
+        phone: '+852 0000 0000',
+        shipping_same: true,
+        invoice_name: 'LUUX test',
+        invoice_line1: 'Payment test',
+        invoice_city: 'Hong Kong',
+        invoice_country: 'ZZ',
       }),
     });
     const data = await response.json().catch(() => ({}));

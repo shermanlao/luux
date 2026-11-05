@@ -9,6 +9,8 @@ class MailboxMessage extends Model {
   declare email: string;
   declare subject: string;
   declare body: string;
+  declare body_html: string | null;
+  declare attachments: string | null;
   declare message_id: string;
   declare inquiry_id: number | null;
   declare parent_id: number | null;
@@ -30,6 +32,8 @@ MailboxMessage.init(
     email: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     subject: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     body: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    body_html: { type: DataTypes.TEXT, allowNull: true },
+    attachments: { type: DataTypes.TEXT, allowNull: true },
     message_id: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     inquiry_id: { type: DataTypes.INTEGER, allowNull: true },
     parent_id: { type: DataTypes.INTEGER, allowNull: true },

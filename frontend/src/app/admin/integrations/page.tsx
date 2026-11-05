@@ -240,8 +240,8 @@ export default function AdminIntegrationsPage() {
         <h2 className="pt-4 text-lg">Marketing key</h2>
         <p className="text-sm text-gray-600">
           {form.marketing_api_key_set
-            ? `A key is saved${form.marketing_api_key_hint ? `, ending ${form.marketing_api_key_hint}` : ''}. Generating a new one replaces it.`
-            : 'No key yet. Other apps send this key when they ask LUUX to draft a campaign.'}
+            ? `A key is saved${form.marketing_api_key_hint ? `, ending ${form.marketing_api_key_hint}` : ''}. Generating a new one replaces it. Paste the new key into the marketer.`
+            : 'No key yet. Generate one and paste it into the marketer. It can read traffic, draft posts, and publish. It cannot change products, orders, or these tokens.'}
         </p>
         {freshKey ? (
           <p className="break-all rounded border border-gray-200 bg-gray-50 p-3 text-sm">

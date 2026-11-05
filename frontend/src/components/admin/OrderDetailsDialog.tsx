@@ -6,6 +6,7 @@ import AdminTable from '@/components/ui/AdminTable';
 import AlertBanner from '@/components/ui/AlertBanner';
 import Button from '@/components/ui/Button';
 import { formatHkd } from '@shared/slugify';
+import { invoiceLines, OrderAddressText, shippingLines, shipsToInvoice } from '@/components/admin/OrderAddress';
 import type { Order } from '@/lib/types';
 
 type OrderItem = Order['items'][number];
@@ -15,13 +16,6 @@ function formatWhen(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleString('en-HK', { dateStyle: 'medium', timeStyle: 'short' });
-}
-
-function addressLines(order: Order) {
-  const city = [order.shipping_city, order.shipping_region, order.shipping_postal].filter(Boolean).join(' ');
-  return [order.shipping_name, order.shipping_phone, order.shipping_line1, order.shipping_line2, city, order.shipping_country].filter(
-    (line) => line && line.trim()
-  );
 }
 
 function lineTotal(quantity: number, unitPrice: string) {
@@ -103,7 +97,9 @@ export default function OrderDetailsDialog({
 
   const placed = formatWhen(order.createdAt);
   const updated = formatWhen(order.updatedAt);
-  const address = addressLines(order);
+  const invoice = invoiceLines(order);
+  const shipping = shippingLines(order);
+  const sameAddress = shipsToInvoice(order);
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !busy && onClose()}>
@@ -171,10 +167,22 @@ export default function OrderDetailsDialog({
               <div>{order.email}</div>
             </div>
             <div>
+              <div className="text-gray-500">Contact number</div>
+              <div>{order.shipping_phone?.trim() || '—'}</div>
+            </div>
+            {invoice.length ? (
+              <div>
+                <div className="text-gray-500">Invoice address</div>
+                <OrderAddressText lines={invoice} />
+              </div>
+            ) : null}
+            <div>
               <div className="text-gray-500">Shipping</div>
               {order.shipping_rate_name ? <div className="text-gray-500">{order.shipping_rate_name}</div> : null}
-              {address.length ? (
-                address.map((line, index) => <div key={`${index}-${line}`}>{line}</div>)
+              {sameAddress ? (
+                <div>Same as invoice address</div>
+              ) : shipping.length ? (
+                <OrderAddressText lines={shipping} />
               ) : (
                 <div className="text-gray-500">No shipping address.</div>
               )}

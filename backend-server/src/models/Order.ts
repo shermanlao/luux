@@ -21,6 +21,14 @@ class Order extends Model {
   declare shipping_region: string;
   declare shipping_postal: string;
   declare shipping_country: string;
+  declare invoice_name: string;
+  declare invoice_line1: string;
+  declare invoice_line2: string;
+  declare invoice_city: string;
+  declare invoice_region: string;
+  declare invoice_postal: string;
+  declare invoice_country: string;
+  declare shipping_same: string;
   declare shipping_rate_name: string;
   declare stripe_session_id: string | null;
   declare stripe_payment_intent: string | null;
@@ -47,6 +55,14 @@ Order.init(
     shipping_region: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     shipping_postal: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     shipping_country: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    invoice_name: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    invoice_line1: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    invoice_line2: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    invoice_city: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    invoice_region: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    invoice_postal: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    invoice_country: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    shipping_same: { type: DataTypes.STRING, allowNull: false, defaultValue: '0' },
     shipping_rate_name: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     stripe_session_id: { type: DataTypes.STRING, allowNull: true, unique: true },
     stripe_payment_intent: { type: DataTypes.STRING, allowNull: true },

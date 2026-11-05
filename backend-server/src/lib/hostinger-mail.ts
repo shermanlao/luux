@@ -12,6 +12,23 @@ type ListedMessage = {
   to?: Address[];
   messageId?: string | null;
   inReplyTo?: string | null;
+  attachments?: Array<{
+    id?: string | null;
+    contentType?: string | null;
+    sizeBytes?: number | null;
+    inline?: boolean | null;
+    filename?: string | null;
+    contentId?: string | null;
+  }>;
+};
+
+export type ApiAttachment = {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  inline: boolean;
+  contentId: string;
 };
 
 export type ApiInboxMessage = {
@@ -23,6 +40,9 @@ export type ApiInboxMessage = {
   messageId: string;
   inReplyTo: string;
   body: string;
+  bodyHtml: string;
+  attachments: ApiAttachment[];
+  contentLoaded: boolean;
   createdAt: Date | null;
 };
 
@@ -95,26 +115,70 @@ async function listFolder(token: string, mailboxId: string, folder: string, perP
   return Array.isArray(payload?.data) ? payload.data : [];
 }
 
-async function messageBody(token: string, mailboxId: string, folder: string, uid: number): Promise<string> {
-  const path = `/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/folders/${encodeURIComponent(folder)}/messages/${uid}/text`;
-  const payload = (await mailApi(token, path)) as { data?: { text?: string; html?: string } } | null;
-  return plainText(String(payload?.data?.text || ''), String(payload?.data?.html || ''));
+function listedAttachments(item: ListedMessage | null): ApiAttachment[] {
+  return (item?.attachments || []).flatMap((file) => {
+    const id = String(file.id || '').trim();
+    if (!id || id.length > 400) return [];
+    return [
+      {
+        id,
+        filename: String(file.filename || 'attachment').replace(/[\r\n"]/g, '').slice(0, 180) || 'attachment',
+        contentType: String(file.contentType || 'application/octet-stream').slice(0, 120),
+        sizeBytes: Number(file.sizeBytes) || 0,
+        inline: Boolean(file.inline),
+        contentId: String(file.contentId || '').slice(0, 300),
+      },
+    ];
+  });
 }
 
-export async function readMailApiInbox(token: string, preferred: string[], own: Set<string>): Promise<ApiInboxMessage[]> {
+async function messageContent(
+  token: string,
+  mailboxId: string,
+  folder: string,
+  uid: number
+): Promise<{ body: string; bodyHtml: string; attachments: ApiAttachment[] }> {
+  const textPath = `/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/folders/${encodeURIComponent(folder)}/messages/${uid}/text`;
+  const messagePath = `/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/folders/${encodeURIComponent(folder)}/messages/${uid}`;
+  const [textPayload, messagePayload] = await Promise.all([
+    mailApi(token, textPath) as Promise<{ data?: { text?: string; html?: string } } | null>,
+    mailApi(token, messagePath) as Promise<{ data?: ListedMessage } | null>,
+  ]);
+  const html = String(textPayload?.data?.html || '').slice(0, 400000);
+  return {
+    body: plainText(String(textPayload?.data?.text || ''), html),
+    bodyHtml: html,
+    attachments: listedAttachments(messagePayload?.data || null),
+  };
+}
+
+async function eachLimited<T>(items: T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+  if (!items.length) return;
+  let cursor = 0;
+  async function next(): Promise<void> {
+    while (cursor < items.length) {
+      const item = items[cursor];
+      cursor += 1;
+      await worker(item);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => next()));
+}
+
+export async function readMailApiInbox(token: string, preferred: string[], own: Set<string>, readyUids: Set<number>): Promise<ApiInboxMessage[]> {
   const mailbox = await resolveMailbox(token, preferred);
   const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const listed = await listFolder(token, mailbox.resourceId, 'INBOX', 40);
-  const incoming: ApiInboxMessage[] = [];
+  const pending: ApiInboxMessage[] = [];
   for (const item of listed) {
     const uid = Number(item.uid);
-    if (!Number.isInteger(uid) || uid < 1) continue;
+    if (!Number.isInteger(uid) || uid < 1 || readyUids.has(uid)) continue;
     const createdAt = item.date ? new Date(item.date) : null;
     if (createdAt && !Number.isNaN(createdAt.getTime()) && createdAt.getTime() < since) continue;
     const address = String(item.from?.address || '').trim().toLowerCase().slice(0, 200);
     if (!address || own.has(address) || address === mailbox.address.trim().toLowerCase()) continue;
     const subject = String(item.subject || '(no subject)').replace(/\s+/g, ' ').trim().slice(0, 255) || '(no subject)';
-    incoming.push({
+    pending.push({
       uid,
       folder: 'INBOX',
       name: String(item.from?.name || '').replace(/\s+/g, ' ').trim().slice(0, 200),
@@ -122,11 +186,51 @@ export async function readMailApiInbox(token: string, preferred: string[], own: 
       subject,
       messageId: String(item.messageId || '').trim().slice(0, 500),
       inReplyTo: String(item.inReplyTo || '').trim().slice(0, 500),
-      body: await messageBody(token, mailbox.resourceId, 'INBOX', uid),
+      body: '',
+      bodyHtml: '',
+      attachments: [],
+      contentLoaded: false,
       createdAt: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt : null,
     });
   }
-  return incoming;
+  await eachLimited(pending, 4, async (message) => {
+    try {
+      const content = await messageContent(token, mailbox.resourceId, message.folder, message.uid);
+      message.body = content.body;
+      message.bodyHtml = content.bodyHtml;
+      message.attachments = content.attachments;
+      message.contentLoaded = true;
+    } catch (error) {
+      console.error('Mail message', message.uid, error instanceof Error ? error.message : error);
+    }
+  });
+  return pending.filter((message) => message.contentLoaded);
+}
+
+const MAX_ATTACHMENT = 25 * 1024 * 1024;
+
+export async function downloadMailAttachment(token: string, preferred: string[], folder: string, uid: number, attachmentId: string): Promise<Buffer> {
+  const mailbox = await resolveMailbox(token, preferred);
+  const path = `/api/v1/mailboxes/${encodeURIComponent(mailbox.resourceId)}/folders/${encodeURIComponent(folder)}/messages/${uid}/attachments/${encodeURIComponent(attachmentId)}`;
+  let response: Response;
+  try {
+    response = await fetch(`${MAIL_API}${path}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/octet-stream' },
+      signal: AbortSignal.timeout(60000),
+    });
+  } catch (error) {
+    console.error('Mail attachment network:', error instanceof Error ? error.message : error);
+    throw new MailRequestError('Could not reach the mail API.');
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string; code?: string };
+    throw mailFailure(response.status, payload);
+  }
+  const length = Number(response.headers.get('content-length') || 0);
+  if (length > MAX_ATTACHMENT) throw new MailRequestError('This attachment is too large.');
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length > MAX_ATTACHMENT) throw new MailRequestError('This attachment is too large.');
+  return bytes;
 }
 
 async function sentCopy(token: string, mailboxId: string, subject: string, to: string): Promise<string> {

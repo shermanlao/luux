@@ -49,14 +49,18 @@ function documentFrom(row: MarketingCampaign): MarketingDocument {
   return toDocument(row.app, { summary: row.analysis_summary, findings: findings(row.analysis_findings) }, [draftFrom(row)]);
 }
 
-async function authorize(req: Request): Promise<boolean> {
-  if (await readAdminSession(req)) return true;
+async function authorize(req: Request): Promise<'staff' | 'key' | null> {
+  if (await readAdminSession(req)) return 'staff';
   const header = String(req.headers.authorization || '');
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-  if (!token) return false;
+  if (!token) return null;
   const site = await SiteSetting.findByPk(1);
   const saved = String(site?.marketing_api_key || '').trim();
-  return Boolean(saved) && safeEqual(saved, token);
+  return saved && safeEqual(saved, token) ? 'key' : null;
+}
+
+function isStaff(res: { locals: Record<string, unknown> }): boolean {
+  return res.locals.marketingAuth === 'staff';
 }
 
 function appName(value: unknown, fallback = ''): string {
@@ -86,7 +90,19 @@ function inputFromBody(body: Record<string, unknown>, app: string): MarketingInp
   return { app, catalog, page_views: pageViews, orders, channels: parseInputChannels(body.channels) };
 }
 
+function siteTokens(site: SiteSetting): ChannelTokens {
+  return {
+    facebook_page_id: site.facebook_page_id,
+    facebook_page_token: site.facebook_page_token,
+    instagram_account_id: site.instagram_account_id,
+    instagram_token: site.instagram_token,
+    threads_user_id: site.threads_user_id,
+    threads_token: site.threads_token,
+  };
+}
+
 function tokensFrom(body: Record<string, unknown>, site: SiteSetting | null, app: string): ChannelTokens {
+  if (app === 'luux' && site) return siteTokens(site);
   const incoming = body.tokens && typeof body.tokens === 'object' ? (body.tokens as Record<string, unknown>) : null;
   if (incoming) {
     return {
@@ -96,16 +112,6 @@ function tokensFrom(body: Record<string, unknown>, site: SiteSetting | null, app
       instagram_token: String(incoming.instagram_token || ''),
       threads_user_id: String(incoming.threads_user_id || ''),
       threads_token: String(incoming.threads_token || ''),
-    };
-  }
-  if (app === 'luux' && site) {
-    return {
-      facebook_page_id: site.facebook_page_id,
-      facebook_page_token: site.facebook_page_token,
-      instagram_account_id: site.instagram_account_id,
-      instagram_token: site.instagram_token,
-      threads_user_id: site.threads_user_id,
-      threads_token: site.threads_token,
     };
   }
   return {
@@ -119,20 +125,26 @@ function tokensFrom(body: Record<string, unknown>, site: SiteSetting | null, app
 }
 
 router.use(asyncHandler(async (req, res, next) => {
-  if (await authorize(req)) {
-    next?.();
+  const auth = await authorize(req);
+  if (!auth) {
+    res.setHeader('WWW-Authenticate', 'Bearer');
+    res.status(401).json({ error: 'Sign in required' });
     return;
   }
-  res.status(401).json({ error: 'Sign in required' });
+  res.locals.marketingAuth = auth;
+  next?.();
 }));
 
 router.get(
   '/v1/overview',
   asyncHandler(async (req, res) => {
-    const staff = await readAdminSession(req);
-    const app = appName(req.query.app, staff ? 'luux' : '');
+    const app = appName(req.query.app, 'luux');
     if (!app) {
       res.status(400).json({ error: 'Choose an app name.' });
+      return;
+    }
+    if (!isStaff(res) && app !== 'luux') {
+      res.status(400).json({ error: 'This key is for the LUUX shop only.' });
       return;
     }
     const site = await SiteSetting.findByPk(1);
@@ -155,11 +167,15 @@ router.get(
 router.post(
   '/v1/drafts',
   asyncHandler(async (req, res) => {
-    const staff = await readAdminSession(req);
+    const staff = isStaff(res);
     const body = (req.body || {}) as Record<string, unknown>;
-    const app = appName(body.app, staff ? 'luux' : '');
+    const app = appName(body.app, 'luux');
     if (!app) {
       res.status(400).json({ error: 'Choose an app name.' });
+      return;
+    }
+    if (!staff && app !== 'luux') {
+      res.status(400).json({ error: 'This key is for the LUUX shop only.' });
       return;
     }
     const site = await SiteSetting.findByPk(1);
@@ -167,8 +183,15 @@ router.post(
       res.status(400).json({ error: 'Save an AI API key on Integrations.' });
       return;
     }
-    const provided = inputFromBody(body, app);
-    const input = provided || (app === 'luux' && staff ? await luuxMarketingInput() : null);
+    let input: MarketingInput | null;
+    if (!staff) {
+      input = await luuxMarketingInput();
+      const requested = parseInputChannels(body.channels);
+      if (requested.length) input.channels = input.channels.filter((channel) => requested.includes(channel));
+    } else {
+      const provided = inputFromBody(body, app);
+      input = provided || (app === 'luux' ? await luuxMarketingInput() : null);
+    }
     if (!input) {
       res.status(400).json({ error: 'Send a catalog, page views, orders, and channels.' });
       return;
@@ -210,7 +233,7 @@ router.get(
   '/v1/drafts/:id',
   asyncHandler(async (req, res) => {
     const row = await MarketingCampaign.findByPk(req.params.id);
-    if (!row) {
+    if (!row || (!isStaff(res) && row.app !== 'luux')) {
       res.status(404).json({ error: 'Campaign not found' });
       return;
     }
@@ -222,7 +245,7 @@ router.put(
   '/v1/drafts/:id',
   asyncHandler(async (req, res) => {
     const row = await MarketingCampaign.findByPk(req.params.id);
-    if (!row) {
+    if (!row || (!isStaff(res) && row.app !== 'luux')) {
       res.status(404).json({ error: 'Campaign not found' });
       return;
     }
@@ -245,7 +268,7 @@ router.post(
   '/v1/drafts/:id/publish',
   asyncHandler(async (req, res) => {
     const row = await MarketingCampaign.findByPk(req.params.id);
-    if (!row) {
+    if (!row || (!isStaff(res) && row.app !== 'luux')) {
       res.status(404).json({ error: 'Campaign not found' });
       return;
     }

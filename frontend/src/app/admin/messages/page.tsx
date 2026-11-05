@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import HelpButton from '@/components/admin/HelpButton';
 import MessageDialog, { type MessageDetail } from '@/components/admin/MessageDialog';
@@ -78,11 +78,18 @@ export default function AdminMessagesPage() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const filterRef = useRef(filter);
+  filterRef.current = filter;
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  const loadSeq = useRef(0);
 
   const load = useCallback(async (next: SourceFilter) => {
+    const seq = ++loadSeq.current;
     const query = next === 'all' ? '' : `?source=${next}`;
     const response = await fetch(`/api/admin/messages${query}`);
     const data = await response.json().catch(() => ({}));
+    if (seq !== loadSeq.current) return;
     if (!response.ok) {
       showSaveNotice(data.error || 'Could not load messages', 'error');
       return;
@@ -91,24 +98,19 @@ export default function AdminMessagesPage() {
     setMail(data.mail || { smtp: false, imap: false });
   }, []);
 
+  const refreshOpen = useCallback(async () => {
+    const current = selectedRef.current;
+    if (!current) return;
+    const response = await fetch(`/api/admin/messages/${current.id}`);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.message) return;
+    if (selectedRef.current?.id !== current.id) return;
+    setSelected(data.message);
+  }, []);
+
   useEffect(() => {
     let stop = false;
-    async function openPage() {
-      setSyncing(true);
-      try {
-        const response = await fetch('/api/admin/messages/sync', { method: 'POST' });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          const message = String(data.error || '');
-          const quiet = message.includes('not set up') || message.includes('already running');
-          if (!quiet) showSaveNotice(message || 'Could not check the mailbox', 'error');
-        }
-      } catch {
-        if (!stop) showSaveNotice('Could not check the mailbox', 'error');
-      } finally {
-        if (!stop) setSyncing(false);
-      }
-      if (stop) return;
+    async function showSaved() {
       try {
         await load('all');
       } catch {
@@ -117,11 +119,32 @@ export default function AdminMessagesPage() {
         if (!stop) setLoading(false);
       }
     }
-    void openPage();
+    async function syncQuiet() {
+      setSyncing(true);
+      try {
+        const response = await fetch('/api/admin/messages/sync', { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        if (stop) return;
+        if (!response.ok) {
+          const message = String(data.error || '');
+          const quiet = message.includes('not set up') || message.includes('already running');
+          if (!quiet) showSaveNotice(message || 'Could not check the mailbox', 'error');
+          return;
+        }
+        await load(filterRef.current);
+        await refreshOpen();
+      } catch {
+        if (!stop) showSaveNotice('Could not check the mailbox', 'error');
+      } finally {
+        if (!stop) setSyncing(false);
+      }
+    }
+    void showSaved();
+    void syncQuiet();
     return () => {
       stop = true;
     };
-  }, [load]);
+  }, [load, refreshOpen]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -164,6 +187,7 @@ export default function AdminMessagesPage() {
         return;
       }
       await load(filter);
+      await refreshOpen();
       const imported = Number(data.imported || 0);
       showSaveNotice(imported ? `Mailbox checked. ${imported} new.` : 'Mailbox checked. No new mail.');
     } catch {

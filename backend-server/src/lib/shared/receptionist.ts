@@ -61,6 +61,7 @@ type Rate = { name: string; code: string; amount: string };
 export function shippingAnswer(text: string, rates: Rate[]): string | null {
   const scope = shippingScope(text);
   const chosen = rates.filter((rate) => {
+    if (rate.code === 'paytest') return false;
     if (scope === 'hk') return rate.code === 'hk' || /hong kong/i.test(rate.name);
     if (scope === 'world') return rate.code === 'world' || /world/i.test(rate.name);
     return true;

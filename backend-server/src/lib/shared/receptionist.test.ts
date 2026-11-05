@@ -26,6 +26,17 @@ describe('simple answers', () => {
     assert.doesNotMatch(answer || '', /Worldwide/);
   });
 
+  it('leaves the hidden payment-test rate out of a general shipping answer', () => {
+    const answer = shippingAnswer('how much is shipping', [
+      { name: 'Hong Kong', code: 'hk', amount: '80.00' },
+      { name: 'Express', code: 'express', amount: '120.00' },
+      { name: 'Payment test', code: 'paytest', amount: '0.00' },
+    ]);
+    assert.match(answer || '', /Hong Kong shipping is HK\$80\.00/);
+    assert.match(answer || '', /Express shipping is HK\$120\.00/);
+    assert.doesNotMatch(answer || '', /Payment test/);
+  });
+
   it('quotes the saved contact details', () => {
     const answer = contactAnswer({ contact_email: 'hello@luuxmart.com', contact_phone: '+852 6898 8613', contact_address: 'Hong Kong' });
     assert.match(answer || '', /hello@luuxmart.com/);

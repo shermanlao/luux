@@ -3,7 +3,8 @@ import { Op } from 'sequelize';
 import { asyncHandler, notFound } from '../lib/asyncHandler';
 import { requireAdmin } from '../lib/authMiddleware';
 import { requestAiReply } from '../lib/aiText';
-import { canReadMail, canSendMail, importContactInquiries, sendSiteMail, syncInbox } from '../lib/mail';
+import { canReadMail, canSendMail, discardMessageFiles, importContactInquiries, readStoredAttachment, sendSiteMail, syncInbox } from '../lib/mail';
+import { contentDisposition, inlineImageType, messageHtml, parseAttachments, publicFiles } from '../lib/shared/mail-html';
 import { shopFacts } from '../lib/shopFacts';
 import { messagePreview, replySubject } from '../lib/shared/mail-text';
 import ContactInquiry from '../models/ContactInquiry';
@@ -27,6 +28,14 @@ function serializeSummary(row: MailboxMessage) {
   };
 }
 
+function presentContent(row: MailboxMessage) {
+  const attachments = parseAttachments(row.attachments);
+  return {
+    html: messageHtml(row, attachments),
+    files: publicFiles(row.attachments),
+  };
+}
+
 function serializeThread(row: MailboxMessage) {
   return {
     id: row.id,
@@ -34,6 +43,7 @@ function serializeThread(row: MailboxMessage) {
     name: row.name,
     email: row.email,
     body: row.body,
+    ...presentContent(row),
     createdAt: row.createdAt,
   };
 }
@@ -43,7 +53,7 @@ async function loadDetail(row: MailboxMessage) {
     where: { parent_id: row.id },
     order: [['id', 'ASC']],
   });
-  return { ...serializeSummary(row), body: row.body, thread: thread.map(serializeThread) };
+  return { ...serializeSummary(row), body: row.body, ...presentContent(row), thread: thread.map(serializeThread) };
 }
 
 router.get(
@@ -54,7 +64,11 @@ router.get(
     const where: { direction: string; parent_id: null; source?: string } = { direction: 'in', parent_id: null };
     if (source === 'contact' || source === 'email' || source === 'chat') where.source = source;
     const [rows, site] = await Promise.all([
-      MailboxMessage.findAll({ where, order: [['createdAt', 'DESC'], ['id', 'DESC']] }),
+      MailboxMessage.findAll({
+        where,
+        attributes: { exclude: ['body_html', 'attachments'] },
+        order: [['createdAt', 'DESC'], ['id', 'DESC']],
+      }),
       SiteSetting.findByPk(1),
     ]);
     res.set('Cache-Control', 'no-store');
@@ -76,6 +90,27 @@ router.post(
     }
     const imported = await syncInbox(site);
     res.json({ imported });
+  })
+);
+
+router.get(
+  '/messages/:id/file',
+  asyncHandler(async (req, res) => {
+    const message = await MailboxMessage.findByPk(req.params.id);
+    if (!message) return notFound(res, 'Message');
+    const raw = req.query.attachment;
+    const wanted = (Array.isArray(raw) ? String(raw[0] || '') : String(raw || '')).trim();
+    const file = parseAttachments(message.attachments).find((item) => item.id === wanted);
+    if (!file) return notFound(res, 'Attachment');
+    const site = await SiteSetting.findByPk(1);
+    if (!site) return notFound(res, 'Settings');
+    const bytes = await readStoredAttachment(site, message, file);
+    const image = inlineImageType(file.contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Cache-Control', 'private, no-store');
+    res.set('Content-Disposition', contentDisposition(file.filename, Boolean(image)));
+    res.type(image || 'application/octet-stream');
+    res.send(bytes);
   })
 );
 
@@ -205,6 +240,9 @@ router.delete(
   asyncHandler(async (req, res) => {
     const message = await MailboxMessage.findByPk(req.params.id);
     if (!message || message.parent_id) return notFound(res, 'Message');
+    const children = await MailboxMessage.findAll({ where: { parent_id: message.id } });
+    for (const child of children) discardMessageFiles(child);
+    discardMessageFiles(message);
     await MailboxMessage.destroy({ where: { parent_id: message.id } });
     if (message.inquiry_id) {
       await ContactInquiry.destroy({ where: { id: message.inquiry_id } });

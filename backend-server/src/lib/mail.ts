@@ -1,8 +1,12 @@
+import { randomBytes } from 'crypto';
+import { Op } from 'sequelize';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import nodemailer from 'nodemailer';
-import { readMailApiInbox, sendMailApi } from './hostinger-mail';
+import { downloadMailAttachment, readMailApiInbox, sendMailApi } from './hostinger-mail';
+import { deleteMailFile, readMailFile, saveMailFile } from './mail-files';
 import { MailRequestError } from './mail-error';
+import { parseAttachments, type StoredAttachment } from './shared/mail-html';
 import ContactInquiry from '../models/ContactInquiry';
 import MailboxMessage from '../models/MailboxMessage';
 import SiteSetting from '../models/SiteSetting';
@@ -215,7 +219,15 @@ export async function syncInbox(site: SiteSetting): Promise<number> {
   try {
     if (canUseMailApi(site)) {
       try {
-        const messages = await readMailApiInbox(mailApiToken(site), preferredMailbox(site), ownAddresses(site));
+        const stored = await MailboxMessage.findAll({
+          where: { source: 'email', remote_folder: 'INBOX', body_html: { [Op.ne]: null } },
+          attributes: ['remote_uid'],
+        });
+        const ready = new Set<number>();
+        for (const row of stored) {
+          if (row.remote_uid) ready.add(row.remote_uid);
+        }
+        const messages = await readMailApiInbox(mailApiToken(site), preferredMailbox(site), ownAddresses(site), ready);
         return await storeIncoming(
           site,
           messages.map((message) => ({
@@ -223,6 +235,9 @@ export async function syncInbox(site: SiteSetting): Promise<number> {
             address: message.address,
             subject: message.subject,
             body: message.body,
+            bodyHtml: message.bodyHtml,
+            attachments: message.attachments.map((file) => ({ ...file, storage: 'mail' as const })),
+            contentLoaded: message.contentLoaded,
             messageId: message.messageId,
             references: message.inReplyTo ? [message.inReplyTo] : [],
             remoteUid: message.uid,
@@ -289,6 +304,9 @@ type IncomingMail = {
   address: string;
   subject: string;
   body: string;
+  bodyHtml: string;
+  attachments: StoredAttachment[];
+  contentLoaded: boolean;
   messageId: string;
   references: string[];
   remoteUid: number | null;
@@ -296,22 +314,69 @@ type IncomingMail = {
   createdAt: Date | null;
 };
 
+const MAX_ATTACHMENT = 25 * 1024 * 1024;
+
+function releaseFiles(message: IncomingMail): void {
+  for (const file of message.attachments) {
+    if (file.storage === 'file') deleteMailFile(file.id);
+  }
+}
+
+export function discardMessageFiles(row: MailboxMessage): void {
+  for (const file of parseAttachments(row.attachments)) {
+    if (file.storage === 'file') deleteMailFile(file.id);
+  }
+}
+
+export async function readStoredAttachment(site: SiteSetting, row: MailboxMessage, file: StoredAttachment): Promise<Buffer> {
+  if (file.storage === 'file') {
+    const bytes = readMailFile(file.id);
+    if (!bytes) throw new MailRequestError('Could not download this attachment.');
+    return bytes;
+  }
+  if (!canReadMail(site) || !row.remote_uid) throw new MailRequestError('Could not download this attachment.');
+  return downloadMailAttachment(mailApiToken(site), preferredMailbox(site), row.remote_folder || 'INBOX', row.remote_uid, file.id);
+}
+
 async function storeIncoming(site: SiteSetting, messages: IncomingMail[]): Promise<number> {
   const own = ownAddresses(site);
   let imported = 0;
   for (const message of messages) {
     const address = message.address.trim().toLowerCase().slice(0, 200);
-    if (!address || own.has(address)) continue;
+    if (!address || own.has(address) || !message.contentLoaded) {
+      releaseFiles(message);
+      continue;
+    }
     const messageId = message.messageId.trim().slice(0, 500);
-    if (messageId) {
-      const duplicate = await MailboxMessage.findOne({ where: { message_id: messageId } });
-      if (duplicate) continue;
+    const duplicate = messageId
+      ? await MailboxMessage.findOne({ where: { message_id: messageId } })
+      : message.remoteUid
+        ? await MailboxMessage.findOne({
+            where: { remote_uid: message.remoteUid, remote_folder: message.remoteFolder || 'INBOX' },
+          })
+        : null;
+    if (duplicate) {
+      if (duplicate.direction === 'in' && duplicate.body_html == null) {
+        duplicate.body_html = message.bodyHtml.slice(0, 400000);
+        duplicate.attachments = JSON.stringify(message.attachments);
+        if (message.body) duplicate.body = message.body;
+        await duplicate.save();
+      } else releaseFiles(message);
+      continue;
     }
     if (message.remoteUid) {
-      const duplicate = await MailboxMessage.findOne({
+      const byUid = await MailboxMessage.findOne({
         where: { remote_uid: message.remoteUid, remote_folder: message.remoteFolder || 'INBOX' },
       });
-      if (duplicate) continue;
+      if (byUid) {
+        if (byUid.direction === 'in' && byUid.body_html == null) {
+          byUid.body_html = message.bodyHtml.slice(0, 400000);
+          byUid.attachments = JSON.stringify(message.attachments);
+          if (message.body) byUid.body = message.body;
+          await byUid.save();
+        } else releaseFiles(message);
+        continue;
+      }
     }
     let parentId: number | null = null;
     for (const reference of message.references) {
@@ -327,6 +392,8 @@ async function storeIncoming(site: SiteSetting, messages: IncomingMail[]): Promi
       email: address,
       subject: message.subject,
       body: message.body,
+      body_html: message.bodyHtml.slice(0, 400000),
+      attachments: JSON.stringify(message.attachments),
       message_id: messageId,
       inquiry_id: null,
       parent_id: parentId,
@@ -347,18 +414,47 @@ async function storeIncoming(site: SiteSetting, messages: IncomingMail[]): Promi
   return imported;
 }
 
+function filesFromParsed(parsed: ParsedMail): StoredAttachment[] {
+  const stored: StoredAttachment[] = [];
+  for (const part of parsed.attachments || []) {
+    if (!part.content || part.content.length > MAX_ATTACHMENT) continue;
+    const id = randomBytes(12).toString('hex');
+    saveMailFile(id, part.content);
+    stored.push({
+      id,
+      filename: String(part.filename || 'attachment').replace(/[\r\n"]/g, '').slice(0, 180) || 'attachment',
+      contentType: String(part.contentType || 'application/octet-stream').slice(0, 120),
+      sizeBytes: part.size || part.content.length,
+      inline: part.contentDisposition === 'inline' || Boolean(part.cid),
+      contentId: String(part.cid || part.contentId || '').replace(/^<|>$/g, ''),
+      storage: 'file',
+    });
+  }
+  return stored;
+}
+
 async function storeInboxMessages(site: SiteSetting, sources: Buffer[]): Promise<number> {
+  const own = ownAddresses(site);
   const messages: IncomingMail[] = [];
   for (const source of sources) {
     const parsed = await simpleParser(source);
     const from = parsed.from?.value?.[0];
+    const address = String(from?.address || '').trim().toLowerCase();
+    if (!address || own.has(address)) continue;
+    const messageId = String(parsed.messageId || '').trim().slice(0, 500);
+    const existing = messageId ? await MailboxMessage.findOne({ where: { message_id: messageId } }) : null;
+    if (existing && (existing.direction !== 'in' || existing.body_html != null)) continue;
     const subject = String(parsed.subject || '(no subject)').replace(/\s+/g, ' ').trim().slice(0, 255) || '(no subject)';
+    const attachments = filesFromParsed(parsed);
     messages.push({
       name: String(from?.name || '').replace(/\s+/g, ' ').trim().slice(0, 200),
-      address: String(from?.address || ''),
+      address,
       subject,
       body: textFromMail(parsed),
-      messageId: String(parsed.messageId || ''),
+      bodyHtml: typeof parsed.html === 'string' ? parsed.html.slice(0, 400000) : '',
+      attachments,
+      contentLoaded: true,
+      messageId,
       references: referenceIds(parsed),
       remoteUid: null,
       remoteFolder: '',

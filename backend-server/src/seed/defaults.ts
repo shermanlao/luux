@@ -26,6 +26,10 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'home.shop_now', title: 'Shop now', body: 'Open the shop and browse lamps.' },
   { helpKey: 'home.learn_more', title: 'Learn more', body: 'Read the About us page.' },
   { helpKey: 'home.newsletter', title: 'Sign up', body: 'Join the LUUX email list.' },
+  { helpKey: 'footer.facebook', title: 'Facebook', body: 'Open the LUUX Facebook page.' },
+  { helpKey: 'footer.instagram', title: 'Instagram', body: 'Open the LUUX Instagram profile.' },
+  { helpKey: 'footer.threads', title: 'Threads', body: 'Open the LUUX Threads profile.' },
+  { helpKey: 'footer.pinterest', title: 'Pinterest', body: 'Open the LUUX Pinterest profile.' },
   { helpKey: 'product.add_to_cart', title: 'Add to cart', body: 'Add this lamp and the selected options to your cart.' },
   { helpKey: 'dialog.close', title: 'Close', body: 'Close this window without adding the lamp.' },
   { helpKey: 'notice.checkout', title: 'Checkout', body: 'Go to checkout to pay for the items just added.' },
@@ -33,10 +37,11 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'product.gallery.prev', title: 'Previous photo', body: 'Show the previous product photo.' },
   { helpKey: 'product.gallery.next', title: 'Next photo', body: 'Show the next product photo.' },
   { helpKey: 'product.gallery.thumb', title: 'Photo', body: 'Show this product photo.' },
-  { helpKey: 'cart.checkout', title: 'Checkout', body: 'Enter your address and pay with Stripe.' },
+  { helpKey: 'cart.checkout', title: 'Checkout', body: 'Enter your email, contact number, and addresses, then pay with Stripe.' },
   { helpKey: 'cart.update', title: 'Update cart', body: 'Change the quantity in your cart.' },
   { helpKey: 'cart.remove', title: 'Remove', body: 'Take this item out of your cart.' },
-  { helpKey: 'checkout.pay', title: 'Pay with Stripe', body: 'Continue to Stripe to pay by card. Card details stay on Stripe.' },
+  { helpKey: 'checkout.pay', title: 'Pay with Stripe', body: 'Continue to Stripe after your email, contact number, and invoice address are filled in. Add a shipping address when it is not the same as the invoice. Card details stay on Stripe.' },
+  { helpKey: 'checkout.same_address', title: 'Same address', body: 'Deliver to the invoice address. Uncheck this to enter a different shipping address before payment.' },
   { helpKey: 'account.login', title: 'Sign in', body: 'Sign in to see past orders. A staff email and password open the admin area.' },
   { helpKey: 'account.signup', title: 'Sign up', body: 'Open the form to create an account.' },
   { helpKey: 'account.google', title: 'Google', body: 'Sign in with Google.' },
@@ -56,7 +61,7 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.nav.settings', title: 'Settings', body: 'Edit homepage copy, contact details, and featured products.' },
   { helpKey: 'admin.nav.integrations', title: 'Integrations', body: 'Save the AI API, Stripe payment details, and social posting tokens.' },
   { helpKey: 'admin.nav.marketing', title: 'Marketing', body: 'Read shop traffic and draft posts. Nothing is published until you confirm.' },
-  { helpKey: 'admin.nav.shipping', title: 'Shipping', body: 'Set the Hong Kong and worldwide flat rates.' },
+  { helpKey: 'admin.nav.shipping', title: 'Shipping', body: 'Add, edit, or remove flat shipping rates.' },
   { helpKey: 'admin.nav.orders', title: 'Orders', body: 'See paid Stripe orders and mark them fulfilled.' },
   { helpKey: 'admin.nav.inquiries', title: 'Messages', body: 'Read contact-form notes and mail from the inbox.' },
   { helpKey: 'admin.product.save', title: 'Save product', body: 'Save this product, its variants, and photos.' },
@@ -105,7 +110,8 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.settings.imap_secure', title: 'IMAP SSL', body: 'Turn this on for port 993. Leave it off for port 143.' },
   { helpKey: 'admin.settings.mail_api_token', title: 'Agentic Mail API token', body: 'Paste the token from Hostinger, Agentic mail, API access. Leave blank to keep the saved token.' },
   { helpKey: 'admin.settings.mail_api_check', title: 'Check API', body: 'Confirm this token can reach the shop mailbox.' },
-  { helpKey: 'admin.messages.sync', title: 'Check mailbox', body: 'Read recent mail again. Opening Messages already checks the inbox, then lists email and chat together.' },
+  { helpKey: 'admin.messages.sync', title: 'Check mailbox', body: 'Read recent mail again. Opening Messages lists saved messages right away and checks the inbox in the background.' },
+  { helpKey: 'admin.messages.attachment', title: 'Attachment', body: 'Download this file from the message.' },
   { helpKey: 'admin.messages.filter_all', title: 'All messages', body: 'Show contact-form notes, email, and live chat together.' },
   { helpKey: 'admin.messages.filter_contact', title: 'Contact form', body: 'Show notes sent from the contact page.' },
   { helpKey: 'admin.messages.filter_email', title: 'Email', body: 'Show mail read from the inbox.' },
@@ -123,13 +129,16 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.messages.reply', title: 'Send reply', body: 'Send this reply. Mail goes out when the message has an address. A chat with no address stays in the thread.' },
   { helpKey: 'admin.messages.delete', title: 'Delete message', body: 'Remove this message and its replies.' },
   { helpKey: 'admin.integrations.save', title: 'Save integrations', body: 'Save the AI API, Stripe payment details, and social posting tokens.' },
-  { helpKey: 'admin.integrations.marketing_key', title: 'Marketing key', body: 'Create a key other apps can send when they ask this shop to draft a campaign. The full key is shown once.' },
+  { helpKey: 'admin.integrations.marketing_key', title: 'Marketing key', body: 'Create a key an outside marketer sends as Bearer. It can read traffic, draft from shop data, edit a draft, and publish to the saved Facebook, Instagram, and Threads tokens. The full key is shown once.' },
   { helpKey: 'admin.marketing.ask', title: 'Ask AI', body: 'Read the last 30 days and draft posts. Nothing is published yet.' },
   { helpKey: 'admin.marketing.save', title: 'Save draft', body: 'Keep this caption, image, link, and channels.' },
   { helpKey: 'admin.marketing.confirm', title: 'Confirm and post', body: 'Publish this draft to the selected channels.' },
   { helpKey: 'admin.marketing.export', title: 'Export JSON', body: 'Download this campaign document for another app.' },
-  { helpKey: 'admin.shipping.save', title: 'Save rates', body: 'Save the shipping amounts.' },
-  { helpKey: 'admin.order.open', title: 'Open order', body: 'Show this order’s items, totals, and shipping address.' },
+  { helpKey: 'admin.shipping.add', title: 'Add option', body: 'Add a shipping option. Set the name, amount, and countries, then save it.' },
+  { helpKey: 'admin.shipping.delete', title: 'Delete option', body: 'Remove this shipping option from checkout.' },
+  { helpKey: 'admin.shipping.countries', title: 'Countries', body: 'Use * for every country, or country codes such as HK.' },
+  { helpKey: 'admin.shipping.save', title: 'Save rates', body: 'Save this option’s name, amount, and countries.' },
+  { helpKey: 'admin.order.open', title: 'Open order', body: 'Show this order’s items, totals, contact number, invoice address, and shipping address.' },
   { helpKey: 'admin.order.close', title: 'Close', body: 'Close the order details.' },
   { helpKey: 'admin.order.fulfill', title: 'Mark fulfilled', body: 'Mark this paid order as shipped.' },
   { helpKey: 'admin.order.cancel', title: 'Cancel order', body: 'Cancel this order. Stripe refunds are done in the Stripe dashboard.' },
@@ -270,6 +279,31 @@ export async function ensureTrafficColumns(): Promise<void> {
   }
 }
 
+const ORDER_INVOICE_COLUMNS = [
+  'invoice_name',
+  'invoice_line1',
+  'invoice_line2',
+  'invoice_city',
+  'invoice_region',
+  'invoice_postal',
+  'invoice_country',
+  'shipping_same',
+];
+
+export async function ensureOrderInvoiceColumns(): Promise<void> {
+  const queryInterface = sequelize.getQueryInterface();
+  const table = await queryInterface.describeTable('orders').catch(() => null);
+  if (!table) return;
+  for (const name of ORDER_INVOICE_COLUMNS) {
+    if (table[name]) continue;
+    await queryInterface.addColumn('orders', name, {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: name === 'shipping_same' ? '0' : '',
+    });
+  }
+}
+
 export async function ensureCustomerOAuthColumns(): Promise<void> {
   const queryInterface = sequelize.getQueryInterface();
   const table = await queryInterface.describeTable('customers').catch(() => null);
@@ -350,6 +384,12 @@ async function ensureMailboxMessageColumns(): Promise<void> {
       allowNull: false,
       defaultValue: false,
     });
+  }
+  if (!table.body_html) {
+    await queryInterface.addColumn('mailbox_messages', 'body_html', { type: DataTypes.TEXT, allowNull: true });
+  }
+  if (!table.attachments) {
+    await queryInterface.addColumn('mailbox_messages', 'attachments', { type: DataTypes.TEXT, allowNull: true });
   }
 }
 

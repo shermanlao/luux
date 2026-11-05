@@ -16,6 +16,40 @@ const router = Router();
 
 type CartLine = { variant_id: number; quantity: number };
 
+type PostalAddress = {
+  name: string;
+  line1: string;
+  line2: string;
+  city: string;
+  region: string;
+  postal: string;
+  country: string;
+};
+
+function clip(value: unknown, max: number) {
+  return String(value ?? '').trim().slice(0, max);
+}
+
+function readAddress(body: Record<string, unknown>, prefix: 'invoice' | 'shipping'): PostalAddress {
+  return {
+    name: clip(body[`${prefix}_name`], 120),
+    line1: clip(body[`${prefix}_line1`], 200),
+    line2: clip(body[`${prefix}_line2`], 200),
+    city: clip(body[`${prefix}_city`], 80),
+    region: clip(body[`${prefix}_region`], 80),
+    postal: clip(body[`${prefix}_postal`], 20),
+    country: clip(body[`${prefix}_country`], 8).toUpperCase(),
+  };
+}
+
+function addressReady(address: PostalAddress) {
+  return Boolean(address.name && address.line1 && address.city && address.country);
+}
+
+function sameAsInvoice(value: unknown) {
+  return value !== false && value !== 0 && value !== '0' && value !== 'false';
+}
+
 async function loadCart(lines: CartLine[], allowUnpublished: boolean) {
   const items: Array<{
     variant: Variant;
@@ -61,20 +95,33 @@ router.post(
       res.status(400).json({ error: 'Choose a shipping rate.' });
       return;
     }
-    const email = String(body.email || '').trim().toLowerCase();
-    const shippingName = String(body.shipping_name || '').trim();
-    const shippingLine1 = String(body.shipping_line1 || '').trim();
-    const shippingCity = String(body.shipping_city || '').trim();
-    const shippingCountry = String(body.shipping_country || '').trim().toUpperCase();
+    const fields = body as Record<string, unknown>;
+    const email = String(fields.email || '').trim().toLowerCase();
+    const phone = clip(fields.phone ?? fields.shipping_phone, 40);
+    const invoice = readAddress(fields, 'invoice');
+    const same = sameAsInvoice(fields.shipping_same);
+    const delivery = same ? invoice : readAddress(fields, 'shipping');
     if (!email.includes('@') || email.length > 200) {
       res.status(400).json({ error: 'Enter a valid email address.' });
       return;
     }
-    if (!shippingName || !shippingLine1 || !shippingCity || !shippingCountry) {
-      res.status(400).json({ error: 'Enter the delivery name, address, and city.' });
+    if (!phone) {
+      res.status(400).json({ error: 'Enter a contact number.' });
       return;
     }
-    if (!shippingMatchesCountry(shipping.countries, shippingCountry)) {
+    if (phone.replace(/\D/g, '').length < 6) {
+      res.status(400).json({ error: 'Enter a contact number with at least 6 digits.' });
+      return;
+    }
+    if (!addressReady(invoice)) {
+      res.status(400).json({ error: 'Enter the invoice name, address, city, and country.' });
+      return;
+    }
+    if (!addressReady(delivery)) {
+      res.status(400).json({ error: 'Enter the shipping name, address, city, and country.' });
+      return;
+    }
+    if (!shippingMatchesCountry(shipping.countries, delivery.country)) {
       res.status(400).json({ error: 'That shipping rate does not cover this country.' });
       return;
     }
@@ -92,14 +139,22 @@ router.post(
       shipping_amount: shipping.amount,
       total: (totalCents / 100).toFixed(2),
       currency: 'HKD',
-      shipping_name: shippingName.slice(0, 120),
-      shipping_phone: String(body.shipping_phone || '').trim().slice(0, 40),
-      shipping_line1: shippingLine1.slice(0, 200),
-      shipping_line2: String(body.shipping_line2 || '').trim().slice(0, 200),
-      shipping_city: shippingCity.slice(0, 80),
-      shipping_region: String(body.shipping_region || '').trim().slice(0, 80),
-      shipping_postal: String(body.shipping_postal || '').trim().slice(0, 20),
-      shipping_country: shippingCountry.slice(0, 8),
+      shipping_name: delivery.name,
+      shipping_phone: phone,
+      shipping_line1: delivery.line1,
+      shipping_line2: delivery.line2,
+      shipping_city: delivery.city,
+      shipping_region: delivery.region,
+      shipping_postal: delivery.postal,
+      shipping_country: delivery.country,
+      invoice_name: invoice.name,
+      invoice_line1: invoice.line1,
+      invoice_line2: invoice.line2,
+      invoice_city: invoice.city,
+      invoice_region: invoice.region,
+      invoice_postal: invoice.postal,
+      invoice_country: invoice.country,
+      shipping_same: same ? '1' : '0',
       shipping_rate_name: shipping.name,
     });
 

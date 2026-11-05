@@ -1,6 +1,6 @@
 # Stripe
 
-Card data never touches this server. Checkout creates a Stripe Checkout Session. The webhook marks the order paid and reduces stock only when Stripe reports the session as paid. Cancelling a paid order puts that stock back. A failed Checkout Session leaves the order cancelled.
+Card data never touches this server. Checkout creates a Stripe Checkout Session only after the customer enters an email, a contact number, and an invoice address. Shipping uses that invoice address unless they uncheck “Shipping address is the same as the invoice address” and enter a delivery address. The shipping rate follows the delivery country. The API refuses the session when any of those are missing. The webhook marks the order paid and reduces stock only when Stripe reports the session as paid. Cancelling a paid order puts that stock back. A failed Checkout Session leaves the order cancelled.
 
 ## Local
 

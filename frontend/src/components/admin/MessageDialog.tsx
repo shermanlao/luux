@@ -2,9 +2,17 @@
 
 import { FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { HelpLink } from '@/components/admin/HelpButton';
 import Button from '@/components/ui/Button';
 import { TextareaField } from '@/components/ui/FormField';
 import AlertBanner from '@/components/ui/AlertBanner';
+
+export type MailFile = {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+};
 
 export type ThreadItem = {
   id: number;
@@ -12,6 +20,8 @@ export type ThreadItem = {
   name: string;
   email: string;
   body: string;
+  html?: string;
+  files?: MailFile[];
   createdAt?: string;
 };
 
@@ -22,6 +32,8 @@ export type MessageDetail = {
   email: string;
   subject: string;
   body: string;
+  html?: string;
+  files?: MailFile[];
   createdAt?: string;
   thread: ThreadItem[];
 };
@@ -37,6 +49,64 @@ function sourceLabel(source: string) {
   if (source === 'email') return 'Email';
   if (source === 'chat') return 'Chat';
   return 'Contact form';
+}
+
+function formatSize(bytes: number) {
+  if (!bytes || bytes < 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function MailView({ html, text }: { html?: string; text: string }) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  function fit() {
+    const frame = frameRef.current;
+    const doc = frame?.contentDocument;
+    if (!frame || !doc?.body) return;
+    const height = Math.max(doc.body.scrollHeight, doc.documentElement?.scrollHeight || 0);
+    frame.style.height = `${Math.min(Math.max(height + 8, 48), 6000)}px`;
+  }
+  useEffect(() => {
+    const timers = [300, 1000, 2000].map((ms) => window.setTimeout(fit, ms));
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [html]);
+  if (!html) return <div className="whitespace-pre-wrap break-words text-sm">{text}</div>;
+  return (
+    <iframe
+      ref={frameRef}
+      title="Message"
+      sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+      srcDoc={html}
+      referrerPolicy="no-referrer"
+      className="w-full bg-white"
+      style={{ height: 120 }}
+      onLoad={fit}
+    />
+  );
+}
+
+function FileLinks({ messageId, files }: { messageId: number; files?: MailFile[] }) {
+  if (!files?.length) return null;
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {files.map((file) => {
+        const size = formatSize(file.sizeBytes);
+        return (
+          <HelpLink
+            key={file.id}
+            helpKey="admin.messages.attachment"
+            href={`/api/admin/messages/${messageId}/file?attachment=${encodeURIComponent(file.id)}`}
+            download={file.filename || 'attachment'}
+            className="btn-secondary max-w-full whitespace-normal text-left"
+          >
+            {file.filename || 'Attachment'}
+            {size ? ` (${size})` : ''}
+          </HelpLink>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function MessageDialog({
@@ -123,7 +193,7 @@ export default function MessageDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg bg-white p-6 shadow-xl"
+        className="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-lg bg-white p-6 shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -147,7 +217,8 @@ export default function MessageDialog({
           </div>
         </div>
         {error || draftError ? <AlertBanner className="mb-4">{error || draftError}</AlertBanner> : null}
-        <div className="whitespace-pre-wrap break-words text-sm">{message.body}</div>
+        <MailView html={message.html} text={message.body} />
+        <FileLinks messageId={message.id} files={message.files} />
         {message.thread.map((item) => (
           <div key={item.id} className="mt-4 border-t border-gray-200 pt-4">
             <div className="text-sm text-gray-500">
@@ -155,7 +226,10 @@ export default function MessageDialog({
               {formatWhen(item.createdAt) ? ` · ${formatWhen(item.createdAt)}` : ''}
               {item.email ? ` · ${item.email}` : ''}
             </div>
-            <div className="mt-2 whitespace-pre-wrap break-words text-sm">{item.body}</div>
+            <div className="mt-2">
+              <MailView html={item.html} text={item.body} />
+              <FileLinks messageId={item.id} files={item.files} />
+            </div>
           </div>
         ))}
         <form onSubmit={send} className="mt-6 space-y-3 border-t border-gray-200 pt-4">

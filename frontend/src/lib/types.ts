@@ -112,6 +112,14 @@ export type Order = {
   shipping_region: string;
   shipping_postal: string;
   shipping_country: string;
+  invoice_name?: string;
+  invoice_line1?: string;
+  invoice_line2?: string;
+  invoice_city?: string;
+  invoice_region?: string;
+  invoice_postal?: string;
+  invoice_country?: string;
+  shipping_same?: string;
   shipping_rate_name: string;
   notes?: string;
   stripe_payment_intent?: string | null;

@@ -2,6 +2,7 @@ import sequelize from '../database';
 import {
   ensureCurrencies,
   ensureCustomerOAuthColumns,
+  ensureOrderInvoiceColumns,
   ensureProductImageOptionTags,
   ensureProductVendorColumns,
   ensureTrafficColumns,
@@ -70,6 +71,7 @@ async function syncDatabase() {
   try {
     await sequelize.sync();
     await ensureCustomerOAuthColumns();
+    await ensureOrderInvoiceColumns();
     await ensureProductImageOptionTags();
     await ensureProductVendorColumns();
     await ensureTrafficColumns();
