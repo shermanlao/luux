@@ -105,7 +105,7 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.settings.imap_secure', title: 'IMAP SSL', body: 'Turn this on for port 993. Leave it off for port 143.' },
   { helpKey: 'admin.settings.mail_api_token', title: 'Agentic Mail API token', body: 'Paste the token from Hostinger, Agentic mail, API access. Leave blank to keep the saved token.' },
   { helpKey: 'admin.settings.mail_api_check', title: 'Check API', body: 'Confirm this token can reach the shop mailbox.' },
-  { helpKey: 'admin.messages.sync', title: 'Check mailbox', body: 'Read recent mail through the Agentic Mail API, or through IMAP when no API token is saved.' },
+  { helpKey: 'admin.messages.sync', title: 'Check mailbox', body: 'Read recent mail again. Opening Messages already checks the inbox, then lists email and chat together.' },
   { helpKey: 'admin.messages.filter_all', title: 'All messages', body: 'Show contact-form notes, email, and live chat together.' },
   { helpKey: 'admin.messages.filter_contact', title: 'Contact form', body: 'Show notes sent from the contact page.' },
   { helpKey: 'admin.messages.filter_email', title: 'Email', body: 'Show mail read from the inbox.' },

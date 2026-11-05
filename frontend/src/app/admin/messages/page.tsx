@@ -92,9 +92,35 @@ export default function AdminMessagesPage() {
   }, []);
 
   useEffect(() => {
-    load('all')
-      .catch(() => showSaveNotice('Could not load messages', 'error'))
-      .finally(() => setLoading(false));
+    let stop = false;
+    async function openPage() {
+      setSyncing(true);
+      try {
+        const response = await fetch('/api/admin/messages/sync', { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const message = String(data.error || '');
+          const quiet = message.includes('not set up') || message.includes('already running');
+          if (!quiet) showSaveNotice(message || 'Could not check the mailbox', 'error');
+        }
+      } catch {
+        if (!stop) showSaveNotice('Could not check the mailbox', 'error');
+      } finally {
+        if (!stop) setSyncing(false);
+      }
+      if (stop) return;
+      try {
+        await load('all');
+      } catch {
+        if (!stop) showSaveNotice('Could not load messages', 'error');
+      } finally {
+        if (!stop) setLoading(false);
+      }
+    }
+    void openPage();
+    return () => {
+      stop = true;
+    };
   }, [load]);
 
   useEffect(() => {
