@@ -5,10 +5,11 @@ import Button from '@/components/ui/Button';
 import AlertBanner from '@/components/ui/AlertBanner';
 import AdminTable from '@/components/ui/AdminTable';
 import { TextInput } from '@/components/ui/FormField';
-import { HelpLink } from '@/components/admin/HelpButton';
+import { HelpLink, useHelpTip } from '@/components/admin/HelpButton';
 import OrderLookup from '@/components/shop/OrderLookup';
 import OrderRecord from '@/components/shop/OrderRecord';
 import PersonalDetails, { type CustomerProfile } from '@/components/shop/PersonalDetails';
+import { copyInvoiceToShipping, EMPTY_ADDRESS, PostalAddressFields } from '@/components/shop/PostalAddressFields';
 import type { Order } from '@/lib/types';
 import { safeAdminNextPath } from '@/lib/admin-session';
 import { orderStatusLabel } from '@shared/address';
@@ -23,7 +24,17 @@ export default function AccountPage() {
   const [found, setFound] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-  const [form, setForm] = useState({ email: '', password: '', password_confirm: '', first_name: '', last_name: '' });
+  const sameTip = useHelpTip('account.same_address');
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+    password_confirm: '',
+    first_name: '',
+    last_name: '',
+    phone: '',
+    shipping_same: true,
+    ...EMPTY_ADDRESS,
+  });
 
   function staffDestination(): string {
     const params = new URLSearchParams(window.location.search);
@@ -58,6 +69,23 @@ export default function AccountPage() {
     const next = params.toString();
     window.history.replaceState(null, '', next ? `/account?${next}` : '/account');
   }, []);
+
+  function setName(key: 'first_name' | 'last_name', value: string) {
+    const invoiceKey = key === 'first_name' ? 'invoice_first_name' : 'invoice_last_name';
+    setForm((current) => {
+      const follow = !current[invoiceKey] || current[invoiceKey] === current[key];
+      return { ...current, [key]: value, ...(follow ? { [invoiceKey]: value } : {}) };
+    });
+  }
+
+  function toggleSame(checked: boolean) {
+    setForm((current) => {
+      if (!checked && !current.shipping_line1.trim()) {
+        return { ...current, shipping_same: false, ...copyInvoiceToShipping(current) };
+      }
+      return { ...current, shipping_same: checked };
+    });
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -132,14 +160,14 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 py-16">
+    <div className={`mx-auto px-4 py-16 ${mode === 'register' ? 'max-w-xl' : 'max-w-md'}`}>
       <h1 className="mb-6 text-3xl">{mode === 'login' ? 'Sign in' : 'Create account'}</h1>
       {error ? <AlertBanner>{error}</AlertBanner> : null}
       <form onSubmit={submit} className="space-y-4">
         {mode === 'register' ? (
           <>
-            <TextInput label="First name" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
-            <TextInput label="Last name" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+            <TextInput label="First name" required autoComplete="given-name" value={form.first_name} onChange={(e) => setName('first_name', e.target.value)} />
+            <TextInput label="Last name" required autoComplete="family-name" value={form.last_name} onChange={(e) => setName('last_name', e.target.value)} />
           </>
         ) : null}
         <TextInput label="Email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -151,6 +179,7 @@ export default function AccountPage() {
           onChange={(e) => setForm({ ...form, password: e.target.value })}
         />
         {mode === 'register' ? (
+          <>
           <TextInput
             label="Confirm password"
             type="password"
@@ -158,6 +187,27 @@ export default function AccountPage() {
             value={form.password_confirm}
             onChange={(e) => setForm({ ...form, password_confirm: e.target.value })}
           />
+          <TextInput
+            label="Contact number"
+            type="tel"
+            required
+            autoComplete="tel"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+          <h2 className="pt-2 text-lg">Invoice address</h2>
+          <PostalAddressFields kind="invoice" form={form} onChange={(patch) => setForm({ ...form, ...patch })} showPhone />
+          <label className="flex items-start gap-2 text-sm" data-help-key="account.same_address" title={sameTip || undefined}>
+            <input type="checkbox" className="mt-1" checked={form.shipping_same} onChange={(event) => toggleSame(event.target.checked)} />
+            <span>Shipping address is the same as the invoice address</span>
+          </label>
+          {form.shipping_same ? null : (
+            <>
+              <h2 className="pt-2 text-lg">Shipping address</h2>
+              <PostalAddressFields kind="shipping" form={form} onChange={(patch) => setForm({ ...form, ...patch })} showPhone />
+            </>
+          )}
+          </>
         ) : null}
         {mode === 'login' ? (
           <div className="grid grid-cols-2 gap-3">

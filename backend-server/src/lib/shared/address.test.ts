@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { addressReady, addressTouched, cleanTrackingUrl, orderStatusLabel, personName, phoneOk, profileError, readPostal } from './address';
+import { addressReady, addressTouched, cleanTrackingUrl, orderStatusLabel, personName, phoneOk, profileError, readPostal, registrationError } from './address';
 
 const EMPTY = {
   first_name: '',
@@ -27,6 +27,14 @@ describe('postal address', () => {
     const address = readPostal({ invoice_name: 'Ada Lovelace' }, 'invoice');
     assert.equal(address.first_name, 'Ada');
     assert.equal(address.last_name, 'Lovelace');
+  });
+
+  it('requires a name, phone, and invoice address to register', () => {
+    const invoice = { ...EMPTY, first_name: 'Ada', last_name: 'Lovelace', line1: '1 Lamp Street', city: 'Central', country: 'HK' };
+    const person = { first_name: 'Ada', last_name: 'Lovelace', phone: '+852 6898 8613', invoice, shipping: invoice, shippingSame: true };
+    assert.equal(registrationError(person), null);
+    assert.equal(registrationError({ ...person, phone: '' }), 'Enter a contact number with at least 6 digits.');
+    assert.equal(registrationError({ ...person, invoice: EMPTY, shipping: EMPTY }), 'Enter the invoice name, address, city, and country.');
   });
 
   it('asks for the rest of a started address', () => {

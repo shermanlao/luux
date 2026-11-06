@@ -6,6 +6,7 @@ import { clearCookie, readCustomerSession, setCookie } from '../lib/cookies';
 import { hashPassword, verifyPassword } from '../lib/adminPassword';
 import { rateLimit } from '../lib/rateLimit';
 import { applyAccountProfile, readAccountProfile, serializeCustomer } from '../lib/customerProfile';
+import { registrationError } from '../lib/shared/address';
 import { serializeCustomerOrder } from '../lib/serialize';
 import { ADMIN_SESSION_COOKIE, createSessionValue } from '../lib/shared/admin-session';
 import {
@@ -69,14 +70,27 @@ router.post(
       res.status(400).json({ error: 'An account with this email already exists.' });
       return;
     }
+    const profile = readAccountProfile((req.body || {}) as Record<string, unknown>);
+    profile.first_name = profile.first_name || first_name;
+    profile.last_name = profile.last_name || last_name;
+    if (!profile.invoice.phone) profile.invoice.phone = profile.phone;
+    if (profile.shippingSame) profile.shipping = { ...profile.invoice };
+    else if (!profile.shipping.phone) profile.shipping.phone = profile.phone;
+    const detailError = registrationError(profile);
+    if (detailError) {
+      res.status(400).json({ error: detailError });
+      return;
+    }
     const customer = await Customer.create({
       email,
       password_hash: hashPassword(password),
-      first_name,
-      last_name,
+      first_name: profile.first_name,
+      last_name: profile.last_name,
     });
+    applyAccountProfile(customer, profile);
+    await customer.save();
     setCookie(res, CUSTOMER_SESSION_COOKIE, await createCustomerSessionValue(customer.id, customer.email));
-    res.json({ customer: { id: customer.id, email: customer.email, first_name, last_name } });
+    res.json({ customer: serializeCustomer(customer) });
   })
 );
 

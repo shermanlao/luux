@@ -49,7 +49,7 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'account.google', title: 'Google', body: 'Sign in with Google.' },
   { helpKey: 'account.facebook', title: 'Facebook', body: 'Sign in with Facebook.' },
   { helpKey: 'account.have_account', title: 'Already have an account?', body: 'Return to the sign-in form.' },
-  { helpKey: 'account.register', title: 'Create account', body: 'Create an account with your email.' },
+  { helpKey: 'account.register', title: 'Create account', body: 'Create an account with your name, email, contact number, and invoice address. Company, apartment, region, and postal code are optional. Shipping uses the invoice address unless you enter a different one.' },
   { helpKey: 'account.logout', title: 'Log out', body: 'End your customer session.' },
   { helpKey: 'account.save', title: 'Save details', body: 'Save your name, phone, invoice address, and shipping address.' },
   { helpKey: 'account.same_address', title: 'Same address', body: 'Use the invoice address for delivery. Uncheck this to save a different shipping address.' },

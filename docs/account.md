@@ -6,7 +6,7 @@ The same form also accepts a staff email and password from `admin_users`. A matc
 
 ## Create account
 
-The create-account form asks for the password twice. `password` and `password_confirm` must match, and the password must be at least 6 characters. A matching email that already exists is rejected.
+The create-account form asks for a first name, last name, email, password, contact number, and invoice address. The password is entered twice. `password` and `password_confirm` must match, and the password must be at least 6 characters. The contact number needs at least 6 digits. The invoice address needs a name, address line, city, and country. Company, apartment, region, and postal code stay optional, including for Hong Kong. Shipping uses that invoice address unless Shipping address is the same as the invoice address is unchecked. Those details are saved on the customer with the account. A matching email that already exists is rejected.
 
 ## Google and Facebook
 

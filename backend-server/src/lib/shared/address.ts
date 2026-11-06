@@ -111,6 +111,23 @@ export function readPostal(body: Record<string, unknown>, prefix: 'invoice' | 's
   return address;
 }
 
+export function registrationError(input: {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  invoice: PostalInput;
+  shipping: PostalInput;
+  shippingSame: boolean;
+}) {
+  if (!input.first_name.trim() || !input.last_name.trim()) return 'Enter your first and last name.';
+  if (!input.phone.trim() || !phoneOk(input.phone)) return 'Enter a contact number with at least 6 digits.';
+  const detail = profileError(input);
+  if (detail) return detail;
+  if (!addressReady(input.invoice)) return 'Enter the invoice name, address, city, and country.';
+  if (!input.shippingSame && !addressReady(input.shipping)) return 'Enter the shipping name, address, city, and country.';
+  return null;
+}
+
 export function profileError(input: { phone: string; invoice: PostalInput; shipping: PostalInput; shippingSame: boolean }) {
   if (!phoneOk(input.phone)) return 'Enter a contact number with at least 6 digits.';
   if (!phoneOk(input.invoice.phone)) return 'Enter an invoice phone number with at least 6 digits.';
