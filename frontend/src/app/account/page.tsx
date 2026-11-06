@@ -5,23 +5,35 @@ import Button from '@/components/ui/Button';
 import AlertBanner from '@/components/ui/AlertBanner';
 import AdminTable from '@/components/ui/AdminTable';
 import { TextInput } from '@/components/ui/FormField';
+import { HelpLink } from '@/components/admin/HelpButton';
+import OrderLookup from '@/components/shop/OrderLookup';
+import OrderRecord from '@/components/shop/OrderRecord';
+import PersonalDetails, { type CustomerProfile } from '@/components/shop/PersonalDetails';
 import type { Order } from '@/lib/types';
+import { safeAdminNextPath } from '@/lib/admin-session';
+import { orderStatusLabel } from '@shared/address';
 import { formatHkd } from '@shared/slugify';
 
-type Customer = { id: number; email: string; first_name?: string; last_name?: string };
+type Customer = CustomerProfile;
 
 export default function AccountPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [found, setFound] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [form, setForm] = useState({ email: '', password: '', password_confirm: '', first_name: '', last_name: '' });
 
+  function staffDestination(): string {
+    const params = new URLSearchParams(window.location.search);
+    return safeAdminNextPath(params.get('next'));
+  }
+
   async function refresh() {
     const admin = await fetch('/api/admin/me', { cache: 'no-store' });
     if (admin.ok) {
-      window.location.replace('/admin');
+      window.location.replace(staffDestination());
       return;
     }
     const me = await fetch('/api/account/me', { cache: 'no-store' }).then((res) => (res.ok ? res.json() : { customer: null }));
@@ -67,7 +79,7 @@ export default function AccountPage() {
       return;
     }
     if (data.admin) {
-      window.location.replace('/admin');
+      window.location.replace(staffDestination());
       return;
     }
     await refresh();
@@ -81,7 +93,7 @@ export default function AccountPage() {
     return (
       <div className="mx-auto max-w-4xl px-4 py-12">
         <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl">Orders</h1>
+          <h1 className="text-3xl">Account</h1>
           <Button
             helpKey="account.logout"
             variant="ghost"
@@ -94,13 +106,24 @@ export default function AccountPage() {
             Log out
           </Button>
         </div>
-        <p className="mb-6 text-sm text-gray-600">{customer.email}</p>
+        <PersonalDetails profile={customer} onSaved={setCustomer} />
+        <h2 className="mb-4 text-xl">Orders</h2>
         <AdminTable columns={['Order', 'Status', 'Total']} empty={!orders.length}>
           {orders.map((order) => (
             <tr key={order.id}>
-              <td className="px-6 py-3">{order.number}</td>
-              <td className="px-6 py-3">{order.status}</td>
-              <td className="px-6 py-3">{formatHkd(order.total)}</td>
+              {(
+                [
+                  order.number,
+                  orderStatusLabel(order.status),
+                  formatHkd(order.total),
+                ] as const
+              ).map((value, index) => (
+                <td key={index} className="p-0">
+                  <HelpLink helpKey="account.order.open" href={`/account/orders/${order.number}`} className="block px-6 py-3">
+                    {value}
+                  </HelpLink>
+                </td>
+              ))}
             </tr>
           ))}
         </AdminTable>
@@ -174,6 +197,14 @@ export default function AccountPage() {
       >
         {mode === 'login' ? 'Sign up' : 'Already have an account?'}
       </Button>
+      <div className="mt-12 border-t border-gray-200 pt-8">
+        <OrderLookup onFound={setFound} />
+        {found ? (
+          <div className="mt-8">
+            <OrderRecord order={found} />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

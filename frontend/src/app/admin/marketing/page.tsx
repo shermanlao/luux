@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import { useHelpTip } from '@/components/admin/HelpButton';
+import VisitorChart, { type VisitorPoint } from '@/components/admin/VisitorChart';
 import Button from '@/components/ui/Button';
 import { TextareaField, TextInput } from '@/components/ui/FormField';
 import { showSaveNotice } from '@/components/ui/SaveNotice';
 
-const CHANNELS = ['facebook', 'instagram', 'threads'] as const;
+const CHANNELS = ['facebook', 'instagram', 'threads', 'pinterest'] as const;
 type Channel = (typeof CHANNELS)[number];
 
 type Result = { channel: Channel; status: 'posted' | 'failed'; external_id: string; error: string };
@@ -24,6 +26,14 @@ type Draft = {
 };
 
 const VISITOR_KINDS = ['Human', 'AI', 'Web scraping'] as const;
+const VISITOR_RANGES = [
+  { id: '7d', label: '7 days' },
+  { id: '30d', label: '30 days' },
+  { id: '90d', label: '90 days' },
+  { id: '12m', label: '12 months' },
+] as const;
+type VisitorRangeId = (typeof VISITOR_RANGES)[number]['id'];
+type VisitorSeries = { range: VisitorRangeId; bucket: 'day' | 'month'; points: VisitorPoint[] };
 
 type Overview = {
   views: number;
@@ -34,7 +44,6 @@ type Overview = {
   top_paths: Array<{ path: string; count: number; stay_seconds: number }>;
   paid_total: string;
   paid_count: number;
-  daily: Array<{ day: string; views: number; paid_total: string }>;
   connected: Record<Channel, boolean>;
   campaigns: Array<{ analysis: Analysis; campaigns: Array<Omit<Draft, 'analysis'>> }>;
 };
@@ -63,11 +72,15 @@ export default function AdminMarketingPage() {
   const [paidTotal, setPaidTotal] = useState('0.00');
   const [paidCount, setPaidCount] = useState(0);
   const [topPaths, setTopPaths] = useState<Overview['top_paths']>([]);
-  const [daily, setDaily] = useState<Overview['daily']>([]);
+  const [range, setRange] = useState<VisitorRangeId>('30d');
+  const [series, setSeries] = useState<VisitorSeries | null>(null);
+  const [seriesError, setSeriesError] = useState(false);
+  const rangeTip = useHelpTip('admin.marketing.range');
   const [connected, setConnected] = useState<Record<Channel, boolean>>({
     facebook: false,
     instagram: false,
     threads: false,
+    pinterest: false,
   });
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [busy, setBusy] = useState('');
@@ -85,12 +98,30 @@ export default function AdminMarketingPage() {
         setPaidTotal(data.paid_total || '0.00');
         setPaidCount(data.paid_count || 0);
         setTopPaths(data.top_paths || []);
-        setDaily(data.daily || []);
-        setConnected(data.connected || { facebook: false, instagram: false, threads: false });
+        setConnected(data.connected || { facebook: false, instagram: false, threads: false, pinterest: false });
         setDrafts(cardsFrom(data));
       })
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSeriesError(false);
+    fetch(`/api/marketing/v1/visitors?range=${range}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('failed');
+        return res.json();
+      })
+      .then((data: VisitorSeries) => {
+        if (!cancelled) setSeries(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSeriesError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [range]);
 
   function update(id: number, patch: Partial<Draft>) {
     setDrafts((current) => current.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
@@ -200,6 +231,46 @@ export default function AdminMarketingPage() {
           <p className="text-2xl">{paidTotal}</p>
         </div>
       </div>
+      <div className="mt-8 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-medium">Visitors over time</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Page views for the range you choose. Quiet days stay on the chart as zero.
+            {range === '12m' ? ' Each point is one month.' : ' Each point is one day.'}
+          </p>
+        </div>
+        <div className="w-44">
+          <label htmlFor="visitor-range" className="admin-field-label">
+            Time range
+          </label>
+          <select
+            id="visitor-range"
+            className="select-field"
+            data-help-key="admin.marketing.range"
+            title={rangeTip || undefined}
+            value={range}
+            onChange={(event) => setRange(event.target.value as VisitorRangeId)}
+          >
+            {VISITOR_RANGES.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {series?.range === range ? (
+        <div className="mt-3 rounded border border-gray-200 p-3">
+          <VisitorChart points={series.points} />
+          <p className="mt-1 text-sm text-gray-500">
+            {series.points.reduce((sum, point) => sum + point.views, 0)} page views
+          </p>
+        </div>
+      ) : seriesError ? (
+        <p className="mt-3 text-sm text-gray-500">Could not load the chart.</p>
+      ) : (
+        <p className="mt-3 text-sm text-gray-500">Loading the chart…</p>
+      )}
       <h2 className="mt-6 text-sm font-medium">Who visited</h2>
       <p className="mt-1 text-sm text-gray-500">Human is a normal browser. AI is a known assistant or model crawler. Web scraping is other automated fetching, including search crawlers and scripts. The label is the browser name on the request, and that name is not stored. Earlier views are not included.</p>
       <ul className="mt-2 space-y-1 text-sm">
@@ -264,28 +335,6 @@ export default function AdminMarketingPage() {
       ) : (
         <p className="mt-4 text-sm text-gray-500">No page views yet.</p>
       )}
-      {daily.length ? (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="py-2 font-medium">Day</th>
-                <th className="py-2 font-medium">Views</th>
-                <th className="py-2 font-medium">Paid</th>
-              </tr>
-            </thead>
-            <tbody>
-              {daily.map((row) => (
-                <tr key={row.day} className="border-b border-gray-100">
-                  <td className="py-2">{row.day}</td>
-                  <td className="py-2">{row.views}</td>
-                  <td className="py-2">{row.paid_total}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
       <div className="mt-6">
         <Button helpKey="admin.marketing.ask" type="button" onClick={ask} disabled={busy === 'ask'}>
           {busy === 'ask' ? 'Asking…' : 'Ask AI'}

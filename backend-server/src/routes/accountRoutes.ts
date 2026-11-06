@@ -5,7 +5,8 @@ import { requireCustomer } from '../lib/authMiddleware';
 import { clearCookie, readCustomerSession, setCookie } from '../lib/cookies';
 import { hashPassword, verifyPassword } from '../lib/adminPassword';
 import { rateLimit } from '../lib/rateLimit';
-import { serializeOrder } from '../lib/serialize';
+import { applyAccountProfile, readAccountProfile, serializeCustomer } from '../lib/customerProfile';
+import { serializeCustomerOrder } from '../lib/serialize';
 import { ADMIN_SESSION_COOKIE, createSessionValue } from '../lib/shared/admin-session';
 import {
   CUSTOMER_SESSION_COOKIE,
@@ -30,8 +31,21 @@ import AdminUser from '../models/AdminUser';
 import Customer from '../models/Customer';
 import Order from '../models/Order';
 import OrderItem from '../models/OrderItem';
+import Product from '../models/Product';
+import Variant from '../models/Variant';
 
 const router = Router();
+
+const orderInclude = [
+  {
+    model: OrderItem,
+    as: 'items',
+    include: [
+      { model: Product, as: 'product', include: [{ association: 'images' }, { association: 'options' }] },
+      { model: Variant, as: 'variant' },
+    ],
+  },
+];
 
 router.post(
   '/register',
@@ -117,14 +131,28 @@ router.get(
       res.status(401).json({ error: 'Sign in required' });
       return;
     }
-    res.json({
-      customer: {
-        id: customer.id,
-        email: customer.email,
-        first_name: customer.first_name,
-        last_name: customer.last_name,
-      },
-    });
+    res.json({ customer: serializeCustomer(customer) });
+  })
+);
+
+router.patch(
+  '/profile',
+  requireCustomer(),
+  asyncHandler(async (req, res) => {
+    const session = (req as typeof req & { customer: { id: number } }).customer;
+    const customer = await Customer.findByPk(session.id);
+    if (!customer) {
+      res.status(401).json({ error: 'Sign in required' });
+      return;
+    }
+    const profile = readAccountProfile((req.body || {}) as Record<string, unknown>);
+    if (profile.error) {
+      res.status(400).json({ error: profile.error });
+      return;
+    }
+    applyAccountProfile(customer, profile);
+    await customer.save();
+    res.json({ customer: serializeCustomer(customer) });
   })
 );
 
@@ -135,10 +163,46 @@ router.get(
     const session = (req as typeof req & { customer: { id: number } }).customer;
     const orders = await Order.findAll({
       where: { customer_id: session.id },
-      include: [{ model: OrderItem, as: 'items' }],
+      include: orderInclude,
       order: [['id', 'DESC']],
     });
-    res.json({ orders: orders.map((order) => serializeOrder(order)) });
+    res.json({ orders: orders.map((order) => serializeCustomerOrder(order)) });
+  })
+);
+
+router.get(
+  '/orders/:number',
+  requireCustomer(),
+  asyncHandler(async (req, res) => {
+    const session = (req as typeof req & { customer: { id: number } }).customer;
+    const number = String(req.params.number || '').trim().slice(0, 40);
+    const order = await Order.findOne({
+      where: { number, customer_id: session.id },
+      include: orderInclude,
+    });
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+    res.json({ order: serializeCustomerOrder(order) });
+  })
+);
+
+router.post(
+  '/orders/lookup',
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 20, name: 'order-lookup' }),
+  asyncHandler(async (req, res) => {
+    const number = String(req.body?.number || '').trim().slice(0, 40);
+    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 200);
+    const order =
+      number && email.includes('@')
+        ? await Order.findOne({ where: { number, email }, include: orderInclude })
+        : null;
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+    res.json({ order: serializeCustomerOrder(order) });
   })
 );
 

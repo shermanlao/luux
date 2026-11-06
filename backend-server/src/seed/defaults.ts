@@ -1,5 +1,6 @@
 import { DataTypes, Op } from 'sequelize';
 import sequelize from '../database';
+import { ORDER_DETAIL_COLUMNS, PROFILE_COLUMNS } from '../lib/shared/address';
 import { hashPassword } from '../lib/adminPassword';
 import { DEFAULT_ADMIN_PASSWORD } from '../lib/shared/production-secrets';
 import AdminUser from '../models/AdminUser';
@@ -40,8 +41,9 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'cart.checkout', title: 'Checkout', body: 'Enter your email, contact number, and addresses, then pay with Stripe.' },
   { helpKey: 'cart.update', title: 'Update cart', body: 'Change the quantity in your cart.' },
   { helpKey: 'cart.remove', title: 'Remove', body: 'Take this item out of your cart.' },
-  { helpKey: 'checkout.pay', title: 'Pay with Stripe', body: 'Continue to Stripe after your email, contact number, and invoice address are filled in. Add a shipping address when it is not the same as the invoice. Card details stay on Stripe.' },
+  { helpKey: 'checkout.pay', title: 'Pay with Stripe', body: 'Continue to Stripe after your email, contact number, and invoice address are filled in. Company is optional. Add a shipping address when it is not the same as the invoice. Card details stay on Stripe.' },
   { helpKey: 'checkout.same_address', title: 'Same address', body: 'Deliver to the invoice address. Uncheck this to enter a different shipping address before payment.' },
+  { helpKey: 'checkout.view_order', title: 'View order', body: 'Open this order in your account.' },
   { helpKey: 'account.login', title: 'Sign in', body: 'Sign in to see past orders. A staff email and password open the admin area.' },
   { helpKey: 'account.signup', title: 'Sign up', body: 'Open the form to create an account.' },
   { helpKey: 'account.google', title: 'Google', body: 'Sign in with Google.' },
@@ -49,9 +51,13 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'account.have_account', title: 'Already have an account?', body: 'Return to the sign-in form.' },
   { helpKey: 'account.register', title: 'Create account', body: 'Create an account with your email.' },
   { helpKey: 'account.logout', title: 'Log out', body: 'End your customer session.' },
+  { helpKey: 'account.save', title: 'Save details', body: 'Save your name, phone, invoice address, and shipping address.' },
+  { helpKey: 'account.same_address', title: 'Same address', body: 'Use the invoice address for delivery. Uncheck this to save a different shipping address.' },
+  { helpKey: 'account.order.open', title: 'Open order', body: 'Open this order, including items, addresses, and tracking.' },
+  { helpKey: 'account.track', title: 'Find order', body: 'Find an order with its number and the email used at checkout.' },
+  { helpKey: 'account.tracking', title: 'Track shipment', body: 'Open the carrier tracking page for this shipment.' },
   { helpKey: 'contact.send', title: 'Send', body: 'Send this message to LUUX.' },
   { helpKey: 'search.submit', title: 'Search', body: 'Find products matching these words.' },
-  { helpKey: 'admin.login', title: 'Sign in', body: 'Sign in to the staff dashboard.' },
   { helpKey: 'admin.logout', title: 'Log out', body: 'End the staff session.' },
   { helpKey: 'admin.nav.back', title: 'Back', body: 'Return to the previous admin page.' },
   { helpKey: 'admin.nav.dashboard', title: 'Dashboard', body: 'Open the staff home.' },
@@ -129,7 +135,10 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.messages.reply', title: 'Send reply', body: 'Send this reply. Mail goes out when the message has an address. A chat with no address stays in the thread.' },
   { helpKey: 'admin.messages.delete', title: 'Delete message', body: 'Remove this message and its replies.' },
   { helpKey: 'admin.integrations.save', title: 'Save integrations', body: 'Save the AI API, Stripe payment details, and social posting tokens.' },
-  { helpKey: 'admin.integrations.marketing_key', title: 'Marketing key', body: 'Create a key an outside marketer sends as Bearer. It can read traffic, draft from shop data, edit a draft, and publish to the saved Facebook, Instagram, and Threads tokens. The full key is shown once.' },
+  { helpKey: 'admin.integrations.pinterest_board', title: 'Pinterest board id', body: 'The board id from GET https://api.pinterest.com/v5/boards. It is the long number on the board, not the name in the board URL.' },
+  { helpKey: 'admin.integrations.pinterest_token', title: 'Pinterest token', body: 'Access token from developers.pinterest.com with boards:read and pins:write. Leave blank to keep the saved token.' },
+  { helpKey: 'admin.integrations.marketing_key', title: 'Marketing key', body: 'Create a key an outside marketer sends as Bearer. It can read traffic, draft from shop data, edit a draft, and publish to the saved Facebook, Instagram, Threads, and Pinterest tokens. The full key is shown once.' },
+  { helpKey: 'admin.marketing.range', title: 'Time range', body: 'Choose 7 days, 30 days, 90 days, or 12 months for the visitors chart. Twelve months adds each day into its month.' },
   { helpKey: 'admin.marketing.ask', title: 'Ask AI', body: 'Read the last 30 days and draft posts. Nothing is published yet.' },
   { helpKey: 'admin.marketing.save', title: 'Save draft', body: 'Keep this caption, image, link, and channels.' },
   { helpKey: 'admin.marketing.confirm', title: 'Confirm and post', body: 'Publish this draft to the selected channels.' },
@@ -140,7 +149,8 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.shipping.save', title: 'Save rates', body: 'Save this option’s name, amount, and countries.' },
   { helpKey: 'admin.order.open', title: 'Open order', body: 'Show this order’s items, totals, contact number, invoice address, and shipping address.' },
   { helpKey: 'admin.order.close', title: 'Close', body: 'Close the order details.' },
-  { helpKey: 'admin.order.fulfill', title: 'Mark fulfilled', body: 'Mark this paid order as shipped.' },
+  { helpKey: 'admin.order.fulfill', title: 'Mark fulfilled', body: 'Mark this paid order as shipped. Enter the carrier and tracking number. A tracking link is optional.' },
+  { helpKey: 'admin.order.tracking', title: 'Save tracking', body: 'Save a corrected carrier, tracking number, or link on this shipped order.' },
   { helpKey: 'admin.order.cancel', title: 'Cancel order', body: 'Cancel this order. Stripe refunds are done in the Stripe dashboard.' },
   { helpKey: 'admin.confirm.cancel', title: 'Cancel', body: 'Close this confirmation.' },
   { helpKey: 'admin.confirm.delete', title: 'Delete', body: 'Permanently delete this record.' },
@@ -163,6 +173,7 @@ export async function upsertHelpTips(): Promise<void> {
       await HelpTip.create(tip);
     }
   }
+  await HelpTip.destroy({ where: { helpKey: 'admin.login' } });
 }
 
 export async function ensureDefaultAdmin(): Promise<void> {
@@ -294,12 +305,26 @@ export async function ensureOrderInvoiceColumns(): Promise<void> {
   const queryInterface = sequelize.getQueryInterface();
   const table = await queryInterface.describeTable('orders').catch(() => null);
   if (!table) return;
-  for (const name of ORDER_INVOICE_COLUMNS) {
+  for (const name of [...ORDER_INVOICE_COLUMNS, ...ORDER_DETAIL_COLUMNS]) {
     if (table[name]) continue;
     await queryInterface.addColumn('orders', name, {
-      type: DataTypes.STRING,
+      type: name === 'tracking_url' ? DataTypes.TEXT : DataTypes.STRING,
       allowNull: false,
       defaultValue: name === 'shipping_same' ? '0' : '',
+    });
+  }
+}
+
+export async function ensureCustomerProfileColumns(): Promise<void> {
+  const queryInterface = sequelize.getQueryInterface();
+  const table = await queryInterface.describeTable('customers').catch(() => null);
+  if (!table) return;
+  for (const name of PROFILE_COLUMNS) {
+    if (table[name]) continue;
+    await queryInterface.addColumn('customers', name, {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: name === 'shipping_same' ? '1' : '',
     });
   }
 }
@@ -338,6 +363,8 @@ const INTEGRATION_COLUMNS: Array<{ name: string; type: typeof DataTypes.STRING |
   { name: 'instagram_token', type: DataTypes.TEXT },
   { name: 'threads_user_id', type: DataTypes.STRING },
   { name: 'threads_token', type: DataTypes.TEXT },
+  { name: 'pinterest_board_id', type: DataTypes.STRING },
+  { name: 'pinterest_token', type: DataTypes.TEXT },
 ];
 
 const MAIL_COLUMNS: Array<{ name: string; type: typeof DataTypes.STRING | typeof DataTypes.TEXT; defaultValue: string }> = [

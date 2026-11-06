@@ -5,143 +5,29 @@ import Button from '@/components/ui/Button';
 import AlertBanner from '@/components/ui/AlertBanner';
 import { TextInput, SelectField } from '@/components/ui/FormField';
 import { useHelpTip } from '@/components/admin/HelpButton';
+import { copyInvoiceToShipping, EMPTY_ADDRESS, PostalAddressFields, type AddressFields } from '@/components/shop/PostalAddressFields';
 import { useCart } from '@/lib/cart';
 import { useCurrency } from '@/lib/currency';
 import type { ShippingRate } from '@/lib/types';
+import { phoneDigits } from '@shared/address';
 import { shippingMatchesCountry } from '@shared/shipping';
 import { formatHkd } from '@shared/slugify';
 import { readShippingId, writeShippingId } from '@/lib/shippingChoice';
 
-const COUNTRIES: Array<[string, string]> = [
-  ['HK', 'Hong Kong SAR'],
-  ['CN', 'China'],
-  ['US', 'United States'],
-  ['GB', 'United Kingdom'],
-  ['SG', 'Singapore'],
-  ['AU', 'Australia'],
-  ['JP', 'Japan'],
-  ['OTHER', 'Other'],
-];
-
-type AddressKind = 'invoice' | 'shipping';
-
-type CheckoutForm = {
+type CheckoutForm = AddressFields & {
   email: string;
   phone: string;
   shipping_same: boolean;
-  invoice_name: string;
-  invoice_line1: string;
-  invoice_line2: string;
-  invoice_city: string;
-  invoice_region: string;
-  invoice_postal: string;
-  invoice_country: string;
-  shipping_name: string;
-  shipping_line1: string;
-  shipping_line2: string;
-  shipping_city: string;
-  shipping_region: string;
-  shipping_postal: string;
-  shipping_country: string;
 };
 
 const EMPTY_FORM: CheckoutForm = {
   email: '',
   phone: '',
   shipping_same: true,
-  invoice_name: '',
-  invoice_line1: '',
-  invoice_line2: '',
-  invoice_city: '',
-  invoice_region: '',
-  invoice_postal: '',
-  invoice_country: 'HK',
-  shipping_name: '',
-  shipping_line1: '',
-  shipping_line2: '',
-  shipping_city: '',
-  shipping_region: '',
-  shipping_postal: '',
-  shipping_country: 'HK',
+  ...EMPTY_ADDRESS,
 };
 
-function digitCount(value: string) {
-  return value.replace(/\D/g, '').length;
-}
-
-function AddressFields({
-  kind,
-  form,
-  onChange,
-}: {
-  kind: AddressKind;
-  form: CheckoutForm;
-  onChange: (patch: Partial<CheckoutForm>) => void;
-}) {
-  const auto = kind === 'invoice' ? 'billing' : 'shipping';
-  const nameKey = `${kind}_name` as const;
-  const line1Key = `${kind}_line1` as const;
-  const line2Key = `${kind}_line2` as const;
-  const cityKey = `${kind}_city` as const;
-  const regionKey = `${kind}_region` as const;
-  const postalKey = `${kind}_postal` as const;
-  const countryKey = `${kind}_country` as const;
-  return (
-    <>
-      <TextInput
-        label="Name"
-        required
-        autoComplete={`${auto} name`}
-        value={form[nameKey]}
-        onChange={(event) => onChange({ [nameKey]: event.target.value })}
-      />
-      <TextInput
-        label="Address"
-        required
-        autoComplete={`${auto} address-line1`}
-        value={form[line1Key]}
-        onChange={(event) => onChange({ [line1Key]: event.target.value })}
-      />
-      <TextInput
-        label="Apartment, suite"
-        autoComplete={`${auto} address-line2`}
-        value={form[line2Key]}
-        onChange={(event) => onChange({ [line2Key]: event.target.value })}
-      />
-      <TextInput
-        label="City"
-        required
-        autoComplete={`${auto} address-level2`}
-        value={form[cityKey]}
-        onChange={(event) => onChange({ [cityKey]: event.target.value })}
-      />
-      <TextInput
-        label="Region"
-        autoComplete={`${auto} address-level1`}
-        value={form[regionKey]}
-        onChange={(event) => onChange({ [regionKey]: event.target.value })}
-      />
-      <TextInput
-        label="Postal code"
-        autoComplete={`${auto} postal-code`}
-        value={form[postalKey]}
-        onChange={(event) => onChange({ [postalKey]: event.target.value })}
-      />
-      <SelectField
-        label="Country"
-        autoComplete={`${auto} country`}
-        value={form[countryKey]}
-        onChange={(event) => onChange({ [countryKey]: event.target.value })}
-      >
-        {COUNTRIES.map(([code, name]) => (
-          <option key={code} value={code}>
-            {name}
-          </option>
-        ))}
-      </SelectField>
-    </>
-  );
-}
+type Profile = Partial<CheckoutForm> & { first_name?: string; last_name?: string; email?: string };
 
 export default function CheckoutPage() {
   const { lines, subtotal } = useCart();
@@ -170,14 +56,36 @@ export default function CheckoutPage() {
     fetch('/api/account/me', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        const email = String(data?.customer?.email || '').trim();
-        const name = [data?.customer?.first_name, data?.customer?.last_name].filter(Boolean).join(' ').trim();
-        if (!email && !name) return;
-        setForm((current) => ({
-          ...current,
-          email: current.email || email,
-          invoice_name: current.invoice_name || name,
-        }));
+        const profile = data?.customer as Profile | undefined;
+        if (!profile) return;
+        setForm((current) => {
+          if (current.email || current.phone || current.invoice_first_name || current.invoice_line1) return current;
+          const same = profile.shipping_same !== false;
+          return {
+            ...current,
+            email: profile.email || '',
+            phone: profile.phone || '',
+            shipping_same: same,
+            invoice_first_name: profile.invoice_first_name || profile.first_name || '',
+            invoice_last_name: profile.invoice_last_name || profile.last_name || '',
+            invoice_company: profile.invoice_company || '',
+            invoice_line1: profile.invoice_line1 || '',
+            invoice_line2: profile.invoice_line2 || '',
+            invoice_city: profile.invoice_city || '',
+            invoice_region: profile.invoice_region || '',
+            invoice_postal: profile.invoice_postal || '',
+            invoice_country: profile.invoice_country || 'HK',
+            shipping_first_name: same ? profile.invoice_first_name || profile.first_name || '' : profile.shipping_first_name || '',
+            shipping_last_name: same ? profile.invoice_last_name || profile.last_name || '' : profile.shipping_last_name || '',
+            shipping_company: same ? profile.invoice_company || '' : profile.shipping_company || '',
+            shipping_line1: same ? profile.invoice_line1 || '' : profile.shipping_line1 || '',
+            shipping_line2: same ? profile.invoice_line2 || '' : profile.shipping_line2 || '',
+            shipping_city: same ? profile.invoice_city || '' : profile.shipping_city || '',
+            shipping_region: same ? profile.invoice_region || '' : profile.shipping_region || '',
+            shipping_postal: same ? profile.invoice_postal || '' : profile.shipping_postal || '',
+            shipping_country: same ? profile.invoice_country || 'HK' : profile.shipping_country || 'HK',
+          };
+        });
       })
       .catch(() => undefined);
   }, []);
@@ -207,17 +115,7 @@ export default function CheckoutPage() {
   function toggleSame(checked: boolean) {
     setForm((current) => {
       if (!checked && !current.shipping_line1.trim()) {
-        return {
-          ...current,
-          shipping_same: false,
-          shipping_name: current.invoice_name,
-          shipping_line1: current.invoice_line1,
-          shipping_line2: current.invoice_line2,
-          shipping_city: current.invoice_city,
-          shipping_region: current.invoice_region,
-          shipping_postal: current.invoice_postal,
-          shipping_country: current.invoice_country,
-        };
+        return { ...current, shipping_same: false, ...copyInvoiceToShipping(current) };
       }
       return { ...current, shipping_same: checked };
     });
@@ -230,7 +128,7 @@ export default function CheckoutPage() {
       setError('Enter a contact number.');
       return;
     }
-    if (digitCount(form.phone) < 6) {
+    if (phoneDigits(form.phone) < 6) {
       setError('Enter a contact number with at least 6 digits.');
       return;
     }
@@ -288,7 +186,7 @@ export default function CheckoutPage() {
           onChange={(event) => patch({ phone: event.target.value })}
         />
         <h2 className="pt-2 text-lg">Invoice address</h2>
-        <AddressFields kind="invoice" form={form} onChange={patch} />
+        <PostalAddressFields kind="invoice" form={form} onChange={patch} />
         <label className="flex items-start gap-2 text-sm" data-help-key="checkout.same_address" title={sameTip || undefined}>
           <input
             type="checkbox"
@@ -301,7 +199,7 @@ export default function CheckoutPage() {
         {form.shipping_same ? null : (
           <>
             <h2 className="pt-2 text-lg">Shipping address</h2>
-            <AddressFields kind="shipping" form={form} onChange={patch} />
+            <PostalAddressFields kind="shipping" form={form} onChange={patch} />
           </>
         )}
         <SelectField

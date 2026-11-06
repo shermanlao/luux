@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import AdminTable from '@/components/ui/AdminTable';
 import AlertBanner from '@/components/ui/AlertBanner';
 import Button from '@/components/ui/Button';
 import { formatHkd } from '@shared/slugify';
 import { invoiceLines, OrderAddressText, shippingLines, shipsToInvoice } from '@/components/admin/OrderAddress';
+import TrackingForm, { trackingFromOrder, type TrackingDraft } from '@/components/admin/TrackingForm';
 import type { Order } from '@/lib/types';
 
 type OrderItem = Order['items'][number];
@@ -71,12 +72,18 @@ export default function OrderDetailsDialog({
   busy?: boolean;
   error?: string;
   onClose: () => void;
-  onFulfill: () => void;
+  onFulfill: (tracking: TrackingDraft) => void;
   onCancel: () => void;
 }) {
   const titleId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const [tracking, setTracking] = useState<TrackingDraft>({ tracking_carrier: '', tracking_number: '', tracking_url: '' });
+
+  useEffect(() => {
+    if (!order) return;
+    setTracking(trackingFromOrder(order));
+  }, [order]);
 
   useEffect(() => {
     if (!order) return;
@@ -121,11 +128,6 @@ export default function OrderDetailsDialog({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {order.status === 'paid' ? (
-              <Button helpKey="admin.order.fulfill" variant="secondary" disabled={busy} onClick={onFulfill}>
-                Mark fulfilled
-              </Button>
-            ) : null}
             {order.status === 'pending' || order.status === 'paid' ? (
               <Button helpKey="admin.order.cancel" variant="danger" disabled={busy} onClick={onCancel}>
                 Cancel order
@@ -137,6 +139,20 @@ export default function OrderDetailsDialog({
           </div>
         </div>
         {error ? <AlertBanner className="mb-4">{error}</AlertBanner> : null}
+        {order.status === 'paid' || order.status === 'fulfilled' ? (
+          <div className="mb-6 max-w-xl space-y-3">
+            <TrackingForm value={tracking} onChange={setTracking} />
+            {order.status === 'paid' ? (
+              <Button helpKey="admin.order.fulfill" variant="secondary" disabled={busy} onClick={() => onFulfill(tracking)}>
+                Mark fulfilled
+              </Button>
+            ) : (
+              <Button helpKey="admin.order.tracking" variant="secondary" disabled={busy} onClick={() => onFulfill(tracking)}>
+                Save tracking
+              </Button>
+            )}
+          </div>
+        ) : null}
         <AdminTable columns={['Item', 'SKU', 'Qty', 'Price', 'Total']} empty={!order.items?.length}>
           {(order.items || []).map((item) => (
             <tr key={item.id}>

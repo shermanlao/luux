@@ -44,6 +44,8 @@ class SiteSetting extends Model {
   declare instagram_token: string;
   declare threads_user_id: string;
   declare threads_token: string;
+  declare pinterest_board_id: string;
+  declare pinterest_token: string;
   declare mail_smtp_host: string;
   declare mail_smtp_port: string;
   declare mail_smtp_secure: string;
@@ -121,6 +123,8 @@ SiteSetting.init(
     instagram_token: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     threads_user_id: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     threads_token: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    pinterest_board_id: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    pinterest_token: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     mail_smtp_host: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     mail_smtp_port: { type: DataTypes.STRING, allowNull: false, defaultValue: '587' },
     mail_smtp_secure: { type: DataTypes.STRING, allowNull: false, defaultValue: '0' },

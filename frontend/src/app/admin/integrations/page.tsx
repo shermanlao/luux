@@ -28,6 +28,9 @@ type Integrations = {
   threads_user_id: string;
   threads_token_set: boolean;
   threads_token_hint: string;
+  pinterest_board_id: string;
+  pinterest_token_set: boolean;
+  pinterest_token_hint: string;
 };
 
 type FormState = Integrations & {
@@ -38,6 +41,7 @@ type FormState = Integrations & {
   facebook_page_token: string;
   instagram_token: string;
   threads_token: string;
+  pinterest_token: string;
 };
 
 const EMPTY: FormState = {
@@ -69,6 +73,10 @@ const EMPTY: FormState = {
   threads_token: '',
   threads_token_set: false,
   threads_token_hint: '',
+  pinterest_board_id: '',
+  pinterest_token: '',
+  pinterest_token_set: false,
+  pinterest_token_hint: '',
 };
 
 function applySaved(integrations: Integrations): FormState {
@@ -82,6 +90,7 @@ function applySaved(integrations: Integrations): FormState {
     facebook_page_token: '',
     instagram_token: '',
     threads_token: '',
+    pinterest_token: '',
   };
 }
 
@@ -120,6 +129,8 @@ export default function AdminIntegrationsPage() {
         instagram_token: form.instagram_token,
         threads_user_id: form.threads_user_id,
         threads_token: form.threads_token,
+        pinterest_board_id: form.pinterest_board_id,
+        pinterest_token: form.pinterest_token,
       }),
     });
     if (!response.ok) {
@@ -204,8 +215,22 @@ export default function AdminIntegrationsPage() {
         />
         <h2 className="pt-4 text-lg">Social posting</h2>
         <p className="text-sm text-gray-600">
-          Profile links on Settings stay public. These fields are the Page, Instagram, and Threads credentials used only after you confirm a post.
+          Profile links on Settings stay public. These fields are the Page, Instagram, Threads, and Pinterest credentials used only after you confirm a post.
         </p>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-gray-600">
+          <li>
+            Facebook: open Graph API Explorer, run GET me/accounts, and paste the numeric Page id plus that Page’s access_token. The token needs pages_manage_posts.
+          </li>
+          <li>
+            Instagram: in the same Explorer, run GET /PAGE_ID?fields=instagram_business_account and paste instagram_business_account.id. The account must be a professional account linked to the Page. The token needs instagram_content_publish. The Page token often works.
+          </li>
+          <li>
+            Threads: in your Meta app, open Access the Threads API and generate a token with threads_basic and threads_content_publish. Call GET graph.threads.net/v1.0/me?fields=id with that token and paste the id.
+          </li>
+          <li>
+            Pinterest: on developers.pinterest.com, open your app and generate a token with boards:read and pins:write. Call GET api.pinterest.com/v5/boards and paste the board id. A Trial app’s pins stay visible only to you until Pinterest grants Standard access. Paste a new token when it expires.
+          </li>
+        </ul>
         <TextInput label="Facebook Page id" value={form.facebook_page_id} onChange={(e) => set('facebook_page_id', e.target.value)} />
         <TextInput
           label="Facebook Page token"
@@ -236,6 +261,21 @@ export default function AdminIntegrationsPage() {
           value={form.threads_token}
           hint={keyHint(form.threads_token_set, form.threads_token_hint)}
           onChange={(e) => set('threads_token', e.target.value)}
+        />
+        <TextInput
+          label="Pinterest board id"
+          helpKey="admin.integrations.pinterest_board"
+          value={form.pinterest_board_id}
+          onChange={(e) => set('pinterest_board_id', e.target.value)}
+        />
+        <TextInput
+          label="Pinterest token"
+          helpKey="admin.integrations.pinterest_token"
+          type="password"
+          autoComplete="new-password"
+          value={form.pinterest_token}
+          hint={keyHint(form.pinterest_token_set, form.pinterest_token_hint)}
+          onChange={(e) => set('pinterest_token', e.target.value)}
         />
         <h2 className="pt-4 text-lg">Marketing key</h2>
         <p className="text-sm text-gray-600">

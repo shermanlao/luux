@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { asyncHandler } from '../lib/asyncHandler';
 import { readAdminSession, readCustomerSession } from '../lib/cookies';
+import { applyCheckoutProfile, orderAddressColumns, readCheckoutProfile } from '../lib/customerProfile';
 import { nextOrderNumber } from '../lib/orderNumber';
 import { rateLimit } from '../lib/rateLimit';
+import { addressReady, phoneDigits } from '../lib/shared/address';
 import { shippingMatchesCountry } from '../lib/shared/shipping';
 import { hkdToCents } from '../lib/shared/slugify';
 import { getStripe, siteOrigin } from '../lib/stripe';
@@ -11,44 +13,11 @@ import OrderItem from '../models/OrderItem';
 import Product from '../models/Product';
 import ShippingRate from '../models/ShippingRate';
 import Variant from '../models/Variant';
+import Customer from '../models/Customer';
 
 const router = Router();
 
 type CartLine = { variant_id: number; quantity: number };
-
-type PostalAddress = {
-  name: string;
-  line1: string;
-  line2: string;
-  city: string;
-  region: string;
-  postal: string;
-  country: string;
-};
-
-function clip(value: unknown, max: number) {
-  return String(value ?? '').trim().slice(0, max);
-}
-
-function readAddress(body: Record<string, unknown>, prefix: 'invoice' | 'shipping'): PostalAddress {
-  return {
-    name: clip(body[`${prefix}_name`], 120),
-    line1: clip(body[`${prefix}_line1`], 200),
-    line2: clip(body[`${prefix}_line2`], 200),
-    city: clip(body[`${prefix}_city`], 80),
-    region: clip(body[`${prefix}_region`], 80),
-    postal: clip(body[`${prefix}_postal`], 20),
-    country: clip(body[`${prefix}_country`], 8).toUpperCase(),
-  };
-}
-
-function addressReady(address: PostalAddress) {
-  return Boolean(address.name && address.line1 && address.city && address.country);
-}
-
-function sameAsInvoice(value: unknown) {
-  return value !== false && value !== 0 && value !== '0' && value !== 'false';
-}
 
 async function loadCart(lines: CartLine[], allowUnpublished: boolean) {
   const items: Array<{
@@ -96,11 +65,8 @@ router.post(
       return;
     }
     const fields = body as Record<string, unknown>;
-    const email = String(fields.email || '').trim().toLowerCase();
-    const phone = clip(fields.phone ?? fields.shipping_phone, 40);
-    const invoice = readAddress(fields, 'invoice');
-    const same = sameAsInvoice(fields.shipping_same);
-    const delivery = same ? invoice : readAddress(fields, 'shipping');
+    const profile = readCheckoutProfile(fields);
+    const { email, phone, invoice, shipping: delivery, shippingSame: same } = profile;
     if (!email.includes('@') || email.length > 200) {
       res.status(400).json({ error: 'Enter a valid email address.' });
       return;
@@ -109,7 +75,7 @@ router.post(
       res.status(400).json({ error: 'Enter a contact number.' });
       return;
     }
-    if (phone.replace(/\D/g, '').length < 6) {
+    if (phoneDigits(phone) < 6) {
       res.status(400).json({ error: 'Enter a contact number with at least 6 digits.' });
       return;
     }
@@ -129,6 +95,13 @@ router.post(
     const shippingCents = hkdToCents(shipping.amount);
     const totalCents = subtotal + shippingCents;
     const customer = await readCustomerSession(req);
+    if (customer) {
+      const row = await Customer.findByPk(customer.id);
+      if (row) {
+        applyCheckoutProfile(row, profile);
+        await row.save();
+      }
+    }
 
     const order = await Order.create({
       number: await nextOrderNumber(),
@@ -139,21 +112,9 @@ router.post(
       shipping_amount: shipping.amount,
       total: (totalCents / 100).toFixed(2),
       currency: 'HKD',
-      shipping_name: delivery.name,
+      ...orderAddressColumns('shipping', delivery),
       shipping_phone: phone,
-      shipping_line1: delivery.line1,
-      shipping_line2: delivery.line2,
-      shipping_city: delivery.city,
-      shipping_region: delivery.region,
-      shipping_postal: delivery.postal,
-      shipping_country: delivery.country,
-      invoice_name: invoice.name,
-      invoice_line1: invoice.line1,
-      invoice_line2: invoice.line2,
-      invoice_city: invoice.city,
-      invoice_region: invoice.region,
-      invoice_postal: invoice.postal,
-      invoice_country: invoice.country,
+      ...orderAddressColumns('invoice', invoice),
       shipping_same: same ? '1' : '0',
       shipping_rate_name: shipping.name,
     });

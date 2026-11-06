@@ -3,6 +3,7 @@ import { asyncHandler, notFound } from '../lib/asyncHandler';
 import { requireAdmin } from '../lib/authMiddleware';
 import { changeOrderStock } from '../lib/orderStock';
 import { serializeOrder } from '../lib/serialize';
+import { cleanTrackingUrl, clipText } from '../lib/shared/address';
 import Order from '../models/Order';
 import OrderItem from '../models/OrderItem';
 import Product from '../models/Product';
@@ -48,11 +49,26 @@ router.post(
   asyncHandler(async (req, res) => {
     const order = await Order.findByPk(req.params.id, { include: orderInclude });
     if (!order) return notFound(res, 'Order');
-    if (order.status !== 'paid') {
+    if (order.status !== 'paid' && order.status !== 'fulfilled') {
       res.status(400).json({ error: 'Only paid orders can be marked fulfilled.' });
       return;
     }
-    order.status = 'fulfilled';
+    const body = (req.body || {}) as Record<string, unknown>;
+    const carrier = clipText(body.tracking_carrier, 80);
+    const trackingNumber = clipText(body.tracking_number, 80);
+    const trackingUrl = cleanTrackingUrl(body.tracking_url);
+    if (!carrier || !trackingNumber) {
+      res.status(400).json({ error: 'Enter the carrier and tracking number.' });
+      return;
+    }
+    if (trackingUrl === null) {
+      res.status(400).json({ error: 'Enter a tracking link that starts with http:// or https://.' });
+      return;
+    }
+    order.tracking_carrier = carrier;
+    order.tracking_number = trackingNumber;
+    order.tracking_url = trackingUrl;
+    if (order.status === 'paid') order.status = 'fulfilled';
     await order.save();
     res.json({ order: serializeOrder(order) });
   })

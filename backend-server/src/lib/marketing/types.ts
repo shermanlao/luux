@@ -1,4 +1,4 @@
-export const MARKETING_CHANNELS = ['facebook', 'instagram', 'threads'] as const;
+export const MARKETING_CHANNELS = ['facebook', 'instagram', 'threads', 'pinterest'] as const;
 
 export type MarketingChannel = (typeof MARKETING_CHANNELS)[number];
 
@@ -56,6 +56,8 @@ export type ChannelTokens = {
   instagram_token: string;
   threads_user_id: string;
   threads_token: string;
+  pinterest_board_id: string;
+  pinterest_token: string;
 };
 
 export function isChannel(value: string): value is MarketingChannel {

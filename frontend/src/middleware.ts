@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ADMIN_SESSION_COOKIE, verifySessionValue } from '@/lib/admin-session';
+import { ADMIN_SESSION_COOKIE, safeAdminNextPath, verifySessionValue } from '@/lib/admin-session';
 import { redirectSameOrigin } from '@/lib/same-origin-redirect';
 import { visitorKind } from '@shared/visitorKind';
 
@@ -71,14 +71,15 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
   const session = await verifySessionValue(token);
 
-  if (pathname === '/admin/login') {
-    if (session) return redirectSameOrigin(request, '/admin');
-    return NextResponse.next();
+  if (pathname === '/admin/login' || pathname.startsWith('/admin/login/')) {
+    const requested = safeAdminNextPath(request.nextUrl.searchParams.get('next') || '/admin');
+    if (session) return redirectSameOrigin(request, requested);
+    return redirectSameOrigin(request, '/account', new URLSearchParams({ next: requested }).toString());
   }
 
   if (!session) {
-    const next = new URLSearchParams({ next: pathname });
-    return redirectSameOrigin(request, '/admin/login', next.toString());
+    const next = safeAdminNextPath(pathname);
+    return redirectSameOrigin(request, '/account', new URLSearchParams({ next }).toString());
   }
 
   return NextResponse.next();

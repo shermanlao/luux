@@ -4,7 +4,10 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
+import OrderLookup from '@/components/shop/OrderLookup';
+import OrderRecord from '@/components/shop/OrderRecord';
 import { useCart } from '@/lib/cart';
+import type { Order } from '@/lib/types';
 import { formatHkd } from '@shared/slugify';
 
 function SuccessBody() {
@@ -12,10 +15,18 @@ function SuccessBody() {
   const sessionId = params.get('session_id');
   const { clear } = useCart();
   const [order, setOrder] = useState<{ number: string; total: string; status: string } | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
+  const [found, setFound] = useState<Order | null>(null);
 
   useEffect(() => {
     clear();
   }, [clear]);
+
+  useEffect(() => {
+    fetch('/api/account/me', { cache: 'no-store' })
+      .then((res) => setSignedIn(res.ok))
+      .catch(() => setSignedIn(false));
+  }, []);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -60,10 +71,21 @@ function SuccessBody() {
         <Button helpKey="nav.home" href="/">
           Home
         </Button>
-        <Button helpKey="nav.account" variant="secondary" href="/account">
-          Account
-        </Button>
+        {signedIn && order ? (
+          <Button helpKey="checkout.view_order" variant="secondary" href={`/account/orders/${order.number}`}>
+            View order
+          </Button>
+        ) : (
+          <Button helpKey="nav.account" variant="secondary" href="/account">
+            Account
+          </Button>
+        )}
       </div>
+      {signedIn || !order ? null : (
+        <div className="mx-auto mt-10 max-w-md text-left">
+          {found ? <OrderRecord order={found} /> : <OrderLookup initialNumber={order.number} onFound={setFound} />}
+        </div>
+      )}
     </div>
   );
 }

@@ -129,8 +129,9 @@ const INTEGRATION_SECRETS = [
   'facebook_page_token',
   'instagram_token',
   'threads_token',
+  'pinterest_token',
 ] as const;
-const INTEGRATION_TEXT = ['ai_base_url', 'ai_model', 'facebook_page_id', 'instagram_account_id', 'threads_user_id'] as const;
+const INTEGRATION_TEXT = ['ai_base_url', 'ai_model', 'facebook_page_id', 'instagram_account_id', 'threads_user_id', 'pinterest_board_id'] as const;
 
 function secretHint(value: string): { set: boolean; hint: string } {
   const trimmed = value.trim();
@@ -218,6 +219,7 @@ function serializeIntegrations(site: SiteSetting) {
   const facebookToken = secretHint(site.facebook_page_token);
   const instagramToken = secretHint(site.instagram_token);
   const threadsToken = secretHint(site.threads_token);
+  const pinterestToken = secretHint(site.pinterest_token);
   return {
     ai_base_url: site.ai_base_url || '',
     ai_model: site.ai_model || '',
@@ -240,6 +242,9 @@ function serializeIntegrations(site: SiteSetting) {
     threads_user_id: site.threads_user_id || '',
     threads_token_set: threadsToken.set,
     threads_token_hint: threadsToken.hint,
+    pinterest_board_id: site.pinterest_board_id || '',
+    pinterest_token_set: pinterestToken.set,
+    pinterest_token_hint: pinterestToken.hint,
   };
 }
 

@@ -14,6 +14,7 @@ class Order extends Model {
   declare total: string;
   declare currency: string;
   declare shipping_name: string;
+  declare shipping_company: string;
   declare shipping_phone: string;
   declare shipping_line1: string;
   declare shipping_line2: string;
@@ -22,6 +23,7 @@ class Order extends Model {
   declare shipping_postal: string;
   declare shipping_country: string;
   declare invoice_name: string;
+  declare invoice_company: string;
   declare invoice_line1: string;
   declare invoice_line2: string;
   declare invoice_city: string;
@@ -33,6 +35,9 @@ class Order extends Model {
   declare stripe_session_id: string | null;
   declare stripe_payment_intent: string | null;
   declare notes: string;
+  declare tracking_carrier: string;
+  declare tracking_number: string;
+  declare tracking_url: string;
   declare createdAt: Date;
 }
 
@@ -48,6 +53,7 @@ Order.init(
     total: { type: DataTypes.STRING, allowNull: false, defaultValue: '0.00' },
     currency: { type: DataTypes.STRING, allowNull: false, defaultValue: 'HKD' },
     shipping_name: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    shipping_company: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     shipping_phone: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     shipping_line1: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     shipping_line2: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
@@ -56,6 +62,7 @@ Order.init(
     shipping_postal: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     shipping_country: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     invoice_name: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    invoice_company: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     invoice_line1: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     invoice_line2: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     invoice_city: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
@@ -67,6 +74,9 @@ Order.init(
     stripe_session_id: { type: DataTypes.STRING, allowNull: true, unique: true },
     stripe_payment_intent: { type: DataTypes.STRING, allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    tracking_carrier: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    tracking_number: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    tracking_url: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
   },
   { sequelize, modelName: 'Order', tableName: 'orders' }
 );

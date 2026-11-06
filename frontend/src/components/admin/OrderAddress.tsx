@@ -11,6 +11,7 @@ function lines(parts: Array<string | null | undefined>) {
 export function invoiceLines(order: Order) {
   return lines([
     order.invoice_name,
+    order.invoice_company,
     order.invoice_line1,
     order.invoice_line2,
     cityLine(order.invoice_city, order.invoice_region, order.invoice_postal),
@@ -21,6 +22,7 @@ export function invoiceLines(order: Order) {
 export function shippingLines(order: Order) {
   return lines([
     order.shipping_name,
+    order.shipping_company,
     order.shipping_line1,
     order.shipping_line2,
     cityLine(order.shipping_city, order.shipping_region, order.shipping_postal),

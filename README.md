@@ -18,7 +18,7 @@ From the `\\LIGHTX\web\luux` share, Windows prints that CMD cannot use a UNC pat
 
 - Site: http://127.0.0.1:3000
 - API: http://127.0.0.1:3333
-- Staff backend: http://127.0.0.1:3000/admin (first login `hello@luuxmart.com` / `j75gUyq2LwbspHL`). The same email and password also work on http://127.0.0.1:3000/account and then open the admin area.
+- Staff backend: http://127.0.0.1:3000/admin. Opening it while signed out goes to the shop sign-in at http://127.0.0.1:3000/account. First login is `hello@luuxmart.com` / `j75gUyq2LwbspHL`. A staff email and password open the admin area.
 
 Import the live Shopify catalog (products, variants, photos, collections, pages):
 

@@ -65,10 +65,43 @@ async function postThreads(draft: CampaignDraft, tokens: ChannelTokens): Promise
   return { channel: 'threads', status: 'posted', external_id: String(published.id || creationId), error: '' };
 }
 
+async function postPinterest(draft: CampaignDraft, tokens: ChannelTokens): Promise<ChannelResult> {
+  if (!tokens.pinterest_board_id || !tokens.pinterest_token) {
+    return { channel: 'pinterest', status: 'failed', external_id: '', error: 'Pinterest board id and token are not saved.' };
+  }
+  if (!draft.image_url.startsWith('https://')) {
+    return { channel: 'pinterest', status: 'failed', external_id: '', error: 'Pinterest needs a public https image. A local draft can be saved, and a live pin needs the public site.' };
+  }
+  const caption = draft.caption.trim();
+  const title = (caption.split('\n').find((line) => line.trim()) || 'LUUX').trim().slice(0, 100);
+  const body: Record<string, string | Record<string, string>> = {
+    board_id: tokens.pinterest_board_id,
+    title,
+    description: caption.slice(0, 800),
+    media_source: { source_type: 'image_url', url: draft.image_url },
+  };
+  if (draft.link.startsWith('http://') || draft.link.startsWith('https://')) body.link = draft.link.slice(0, 2048);
+  const response = await fetch('https://api.pinterest.com/v5/pins', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${tokens.pinterest_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) {
+    const message = typeof data.message === 'string' ? data.message : '';
+    throw new Error(message || 'Pinterest rejected the pin.');
+  }
+  return { channel: 'pinterest', status: 'posted', external_id: String(data.id || ''), error: '' };
+}
+
 const POSTERS: Record<MarketingChannel, (draft: CampaignDraft, tokens: ChannelTokens) => Promise<ChannelResult>> = {
   facebook: postFacebook,
   instagram: postInstagram,
   threads: postThreads,
+  pinterest: postPinterest,
 };
 
 export async function publishDraft(

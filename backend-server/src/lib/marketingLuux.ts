@@ -40,6 +40,57 @@ function sinceDate(): Date {
   return since;
 }
 
+export const VISITOR_RANGES = ['7d', '30d', '90d', '12m'] as const;
+export type VisitorRange = (typeof VISITOR_RANGES)[number];
+
+export function parseVisitorRange(value: unknown): VisitorRange {
+  const range = String(value || '30d');
+  return (VISITOR_RANGES as readonly string[]).includes(range) ? (range as VisitorRange) : '30d';
+}
+
+function utcDay(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+export function visitorWindow(range: VisitorRange): { sinceDay: string; bucket: 'day' | 'month'; keys: string[] } {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  if (range === '12m') {
+    const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 11, 1));
+    const keys: string[] = [];
+    for (let i = 0; i < 12; i += 1) {
+      const month = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1));
+      keys.push(month.toISOString().slice(0, 7));
+    }
+    return { sinceDay: `${keys[0]}-01`, bucket: 'month', keys };
+  }
+  const days = range === '7d' ? 7 : range === '90d' ? 90 : 30;
+  const start = new Date(today);
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  const keys: string[] = [];
+  for (let i = 0; i < days; i += 1) {
+    const day = new Date(start);
+    day.setUTCDate(start.getUTCDate() + i);
+    keys.push(utcDay(day));
+  }
+  return { sinceDay: keys[0], bucket: 'day', keys };
+}
+
+export async function visitorSeries(app: string, range: VisitorRange) {
+  const window = visitorWindow(range);
+  const views = await PageView.findAll({ where: { app, day: { [Op.gte]: window.sinceDay } } });
+  const totals = new Map<string, number>();
+  for (const row of views) {
+    const key = window.bucket === 'month' ? String(row.day).slice(0, 7) : row.day;
+    totals.set(key, (totals.get(key) || 0) + row.count);
+  }
+  return {
+    range,
+    bucket: window.bucket,
+    points: window.keys.map((day) => ({ day, views: totals.get(day) || 0 })),
+  };
+}
+
 function absoluteUrl(src: string): string {
   if (!src) return '';
   if (src.startsWith('http://') || src.startsWith('https://')) return src;
@@ -52,6 +103,7 @@ export function connectedChannels(site: SiteSetting): MarketingChannel[] {
   if (site.facebook_page_id && site.facebook_page_token) channels.push('facebook');
   if (site.instagram_account_id && site.instagram_token) channels.push('instagram');
   if (site.threads_user_id && site.threads_token) channels.push('threads');
+  if (site.pinterest_board_id && site.pinterest_token) channels.push('pinterest');
   return channels;
 }
 

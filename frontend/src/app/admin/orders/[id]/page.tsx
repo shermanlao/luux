@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import TrackingForm, { trackingFromOrder, type TrackingDraft } from '@/components/admin/TrackingForm';
 import AdminTable from '@/components/ui/AdminTable';
 import AlertBanner from '@/components/ui/AlertBanner';
 import Button from '@/components/ui/Button';
@@ -30,6 +31,7 @@ export default function AdminOrderPage() {
   const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [tracking, setTracking] = useState<TrackingDraft>({ tracking_carrier: '', tracking_number: '', tracking_url: '' });
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +44,7 @@ export default function AdminOrderPage() {
           return;
         }
         setOrder(data.order);
+        setTracking(trackingFromOrder(data.order));
       })
       .catch(() => {
         if (!cancelled) setMissing(true);
@@ -59,13 +62,18 @@ export default function AdminOrderPage() {
     setBusy(true);
     setError('');
     try {
-      const response = await fetch(`/api/admin/orders/${order.id}/${action}`, { method: 'POST' });
+      const response = await fetch(`/api/admin/orders/${order.id}/${action}`, {
+        method: 'POST',
+        headers: action === 'fulfill' ? { 'Content-Type': 'application/json' } : undefined,
+        body: action === 'fulfill' ? JSON.stringify(tracking) : undefined,
+      });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.order) {
         setError(data.error || 'Could not update this order.');
         return;
       }
       setOrder(data.order);
+      setTracking(trackingFromOrder(data.order));
     } catch {
       setError('Could not update this order.');
     } finally {
@@ -93,11 +101,6 @@ export default function AdminOrderPage() {
   const sameAddress = shipsToInvoice(order);
   const actions = (
     <>
-      {order.status === 'paid' ? (
-        <Button helpKey="admin.order.fulfill" variant="secondary" disabled={busy} onClick={() => update('fulfill')}>
-          Mark fulfilled
-        </Button>
-      ) : null}
       {order.status === 'pending' || order.status === 'paid' ? (
         <Button helpKey="admin.order.cancel" variant="danger" disabled={busy} onClick={() => update('cancel')}>
           Cancel order
@@ -196,6 +199,20 @@ export default function AdminOrderPage() {
                 </div>
               ) : null}
             </dl>
+            {order.status === 'paid' || order.status === 'fulfilled' ? (
+              <div className="mt-6 space-y-3">
+                <TrackingForm value={tracking} onChange={setTracking} />
+                {order.status === 'paid' ? (
+                  <Button helpKey="admin.order.fulfill" variant="secondary" disabled={busy} onClick={() => update('fulfill')}>
+                    Mark fulfilled
+                  </Button>
+                ) : (
+                  <Button helpKey="admin.order.tracking" variant="secondary" disabled={busy} onClick={() => update('fulfill')}>
+                    Save tracking
+                  </Button>
+                )}
+              </div>
+            ) : null}
           </Card>
           {invoice.length ? (
             <Card>

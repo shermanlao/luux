@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import HelpButton from '@/components/admin/HelpButton';
 import OrderDetailsDialog from '@/components/admin/OrderDetailsDialog';
+import type { TrackingDraft } from '@/components/admin/TrackingForm';
 import AdminTable from '@/components/ui/AdminTable';
 import { formatHkd } from '@shared/slugify';
 import type { Order } from '@/lib/types';
@@ -30,12 +31,16 @@ export default function AdminOrdersPage() {
     setSelectedId(order.id);
   }
 
-  async function update(action: 'fulfill' | 'cancel') {
+  async function update(action: 'fulfill' | 'cancel', tracking?: TrackingDraft) {
     if (!selected || busy) return;
     setBusy(true);
     setError('');
     try {
-      const response = await fetch(`/api/admin/orders/${selected.id}/${action}`, { method: 'POST' });
+      const response = await fetch(`/api/admin/orders/${selected.id}/${action}`, {
+        method: 'POST',
+        headers: action === 'fulfill' ? { 'Content-Type': 'application/json' } : undefined,
+        body: action === 'fulfill' ? JSON.stringify(tracking || {}) : undefined,
+      });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.order) {
         setError(data.error || 'Could not update this order.');
@@ -85,7 +90,7 @@ export default function AdminOrdersPage() {
           setSelectedId(null);
           setError('');
         }}
-        onFulfill={() => update('fulfill')}
+        onFulfill={(tracking) => update('fulfill', tracking)}
         onCancel={() => update('cancel')}
       />
     </div>

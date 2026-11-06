@@ -105,6 +105,7 @@ export type Order = {
   total: string;
   currency: string;
   shipping_name: string;
+  shipping_company?: string;
   shipping_phone: string;
   shipping_line1: string;
   shipping_line2: string;
@@ -113,6 +114,7 @@ export type Order = {
   shipping_postal: string;
   shipping_country: string;
   invoice_name?: string;
+  invoice_company?: string;
   invoice_line1?: string;
   invoice_line2?: string;
   invoice_city?: string;
@@ -122,6 +124,9 @@ export type Order = {
   shipping_same?: string;
   shipping_rate_name: string;
   notes?: string;
+  tracking_carrier?: string;
+  tracking_number?: string;
+  tracking_url?: string;
   stripe_payment_intent?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;

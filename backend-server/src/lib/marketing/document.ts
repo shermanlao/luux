@@ -1,4 +1,4 @@
-import type { CampaignDraft, ChannelResult, MarketingDocument } from './types';
+import { isChannel, type CampaignDraft, type ChannelResult, type MarketingDocument } from './types';
 
 export function toDocument(
   app: string,
@@ -16,7 +16,7 @@ export function parseResults(raw: string): ChannelResult[] {
       if (!item || typeof item !== 'object') return [];
       const row = item as Record<string, unknown>;
       const channel = String(row.channel || '');
-      if (channel !== 'facebook' && channel !== 'instagram' && channel !== 'threads') return [];
+      if (!isChannel(channel)) return [];
       return [{
         channel,
         status: row.status === 'posted' ? 'posted' as const : 'failed' as const,

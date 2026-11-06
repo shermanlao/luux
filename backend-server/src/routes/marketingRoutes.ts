@@ -6,7 +6,7 @@ import { requestAiDraft } from '../lib/marketing/ai';
 import { parseResults, toDocument } from '../lib/marketing/document';
 import { publishDraft } from '../lib/marketing/publish';
 import { isChannel, type CampaignDraft, type ChannelTokens, type MarketingChannel, type MarketingDocument, type MarketingInput } from '../lib/marketing/types';
-import { connectedChannels, luuxMarketingInput, parseInputChannels, trafficSummary } from '../lib/marketingLuux';
+import { connectedChannels, luuxMarketingInput, parseInputChannels, parseVisitorRange, trafficSummary, visitorSeries } from '../lib/marketingLuux';
 import { safeEqual } from '../lib/shared/hmac';
 import MarketingCampaign from '../models/MarketingCampaign';
 import SiteSetting from '../models/SiteSetting';
@@ -98,6 +98,8 @@ function siteTokens(site: SiteSetting): ChannelTokens {
     instagram_token: site.instagram_token,
     threads_user_id: site.threads_user_id,
     threads_token: site.threads_token,
+    pinterest_board_id: site.pinterest_board_id,
+    pinterest_token: site.pinterest_token,
   };
 }
 
@@ -112,6 +114,8 @@ function tokensFrom(body: Record<string, unknown>, site: SiteSetting | null, app
       instagram_token: String(incoming.instagram_token || ''),
       threads_user_id: String(incoming.threads_user_id || ''),
       threads_token: String(incoming.threads_token || ''),
+      pinterest_board_id: String(incoming.pinterest_board_id || ''),
+      pinterest_token: String(incoming.pinterest_token || ''),
     };
   }
   return {
@@ -121,6 +125,8 @@ function tokensFrom(body: Record<string, unknown>, site: SiteSetting | null, app
     instagram_token: '',
     threads_user_id: '',
     threads_token: '',
+    pinterest_board_id: '',
+    pinterest_token: '',
   };
 }
 
@@ -158,9 +164,26 @@ router.get(
         facebook: connected.includes('facebook'),
         instagram: connected.includes('instagram'),
         threads: connected.includes('threads'),
+        pinterest: connected.includes('pinterest'),
       },
       campaigns: rows.map(documentFrom),
     });
+  })
+);
+
+router.get(
+  '/v1/visitors',
+  asyncHandler(async (req, res) => {
+    const app = appName(req.query.app, 'luux');
+    if (!app) {
+      res.status(400).json({ error: 'Choose an app name.' });
+      return;
+    }
+    if (!isStaff(res) && app !== 'luux') {
+      res.status(400).json({ error: 'This key is for the LUUX shop only.' });
+      return;
+    }
+    res.json(await visitorSeries(app, parseVisitorRange(req.query.range)));
   })
 );
 
