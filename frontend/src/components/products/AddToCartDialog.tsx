@@ -78,7 +78,7 @@ export default function AddToCartDialog({
         className="grid max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg bg-white shadow-2xl sm:grid-cols-2"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-center bg-neutral-100 p-6 sm:p-8">
+        <div className="flex items-start justify-center bg-neutral-100 p-6 sm:p-8">
           <img src={image} alt={product.title} className="h-80 w-full object-contain sm:h-[28rem]" />
         </div>
         <div className="flex min-w-0 flex-col p-6 sm:p-8">
@@ -93,6 +93,12 @@ export default function AddToCartDialog({
               onChange={(index, value) => setSelected((current) => current.map((item, i) => (i === index ? value : item)))}
             />
           </div>
+          {product.body_html?.trim() ? (
+            <div
+              className="prose-luux mt-6 border-t border-neutral-200 pt-4 text-sm text-gray-700"
+              dangerouslySetInnerHTML={{ __html: product.body_html }}
+            />
+          ) : null}
           <div className="mt-8 flex justify-end gap-3 sm:mt-auto sm:pt-8">
             <Button helpKey="dialog.close" variant="secondary" onClick={onClose}>
               Close

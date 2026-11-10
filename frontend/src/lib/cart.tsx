@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { recordAddToCart } from './funnel';
 import type { CartLine } from './types';
 
 const KEY = 'luux_cart';
@@ -43,6 +44,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [lines, ready]);
 
   const add = useCallback((line: Omit<CartLine, 'quantity'>, quantity = 1) => {
+    recordAddToCart();
     setLines((current) => {
       const existing = current.find((item) => item.variant_id === line.variant_id);
       if (existing) {

@@ -38,6 +38,17 @@ class Order extends Model {
   declare tracking_carrier: string;
   declare tracking_number: string;
   declare tracking_url: string;
+  declare attr_source: string;
+  declare attr_medium: string;
+  declare attr_campaign: string;
+  declare attr_content: string;
+  declare attr_term: string;
+  declare attr_channel: string;
+  declare attr_landing_path: string;
+  declare attr_campaign_id: number;
+  declare attr_first_touch_at: string;
+  declare attr_last_touch_at: string;
+  declare attr_purchased: string;
   declare createdAt: Date;
 }
 
@@ -77,6 +88,17 @@ Order.init(
     tracking_carrier: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     tracking_number: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     tracking_url: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    attr_source: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    attr_medium: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    attr_campaign: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    attr_content: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    attr_term: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    attr_channel: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    attr_landing_path: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    attr_campaign_id: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    attr_first_touch_at: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    attr_last_touch_at: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    attr_purchased: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
   },
   { sequelize, modelName: 'Order', tableName: 'orders' }
 );

@@ -3,6 +3,7 @@ import {
   ensureCurrencies,
   ensureCustomerOAuthColumns,
   ensureCustomerProfileColumns,
+  ensureOrderAttributionColumns,
   ensureOrderInvoiceColumns,
   ensureProductImageOptionTags,
   ensureProductVendorColumns,
@@ -32,6 +33,7 @@ import ProductOption from './ProductOption';
 import ShippingRate from './ShippingRate';
 import SiteSetting from './SiteSetting';
 import Variant from './Variant';
+import FunnelEvent from './FunnelEvent';
 import PageView from './PageView';
 import TrafficSource from './TrafficSource';
 import TrafficCountry from './TrafficCountry';
@@ -74,6 +76,7 @@ async function syncDatabase() {
     await ensureCustomerOAuthColumns();
     await ensureCustomerProfileColumns();
     await ensureOrderInvoiceColumns();
+    await ensureOrderAttributionColumns();
     await ensureProductImageOptionTags();
     await ensureProductVendorColumns();
     await ensureTrafficColumns();
@@ -111,6 +114,7 @@ export {
   Currency,
   SiteSetting,
   Variant,
+  FunnelEvent,
   PageView,
   TrafficSource,
   TrafficCountry,

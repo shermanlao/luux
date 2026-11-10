@@ -8,12 +8,14 @@ export default function ToggleSwitch({
   onChange,
   label,
   disabled,
+  hideLabel,
 }: {
   helpKey: string;
   checked: boolean;
   onChange: (next: boolean) => void;
   label: string;
   disabled?: boolean;
+  hideLabel?: boolean;
 }) {
   return (
     <span className="inline-flex items-center gap-2 text-sm text-gray-700">
@@ -30,7 +32,7 @@ export default function ToggleSwitch({
       >
         <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
       </HelpButton>
-      <span>{label}</span>
+      {hideLabel ? null : <span>{label}</span>}
     </span>
   );
 }

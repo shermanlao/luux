@@ -12,6 +12,7 @@ import type { ShippingRate } from '@/lib/types';
 import { phoneDigits } from '@shared/address';
 import { shippingMatchesCountry } from '@shared/shipping';
 import { formatHkd } from '@shared/slugify';
+import { currentAttribution, recordCheckoutStart } from '@/lib/funnel';
 import { readShippingId, writeShippingId } from '@/lib/shippingChoice';
 
 type CheckoutForm = AddressFields & {
@@ -38,6 +39,11 @@ export default function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState<CheckoutForm>(EMPTY_FORM);
+
+  useEffect(() => {
+    if (!lines.length) return;
+    recordCheckoutStart();
+  }, [lines.length]);
 
   useEffect(() => {
     fetch('/api/shipping')
@@ -141,6 +147,7 @@ export default function CheckoutPage() {
           ...form,
           shipping_rate_id: shippingId,
           items: lines.map((line) => ({ variant_id: line.variant_id, quantity: line.quantity })),
+          attribution: currentAttribution(),
         }),
       });
       const data = await response.json().catch(() => ({}));

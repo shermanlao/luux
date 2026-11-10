@@ -6,6 +6,8 @@ import { nextOrderNumber } from '../lib/orderNumber';
 import { rateLimit } from '../lib/rateLimit';
 import { addressReady, phoneDigits } from '../lib/shared/address';
 import { shippingMatchesCountry } from '../lib/shared/shipping';
+import { attributionMetadata, orderAttributionColumns, sanitizeAttribution } from '../lib/shared/marketing-funnel';
+import { FUNNEL_APP } from '../lib/shared/marketing-funnel-luux';
 import { hkdToCents } from '../lib/shared/slugify';
 import { getStripe, siteOrigin } from '../lib/stripe';
 import Order from '../models/Order';
@@ -103,6 +105,7 @@ router.post(
       }
     }
 
+    const attribution = sanitizeAttribution(body.attribution, FUNNEL_APP);
     const order = await Order.create({
       number: await nextOrderNumber(),
       customer_id: customer?.id || null,
@@ -117,6 +120,7 @@ router.post(
       ...orderAddressColumns('invoice', invoice),
       shipping_same: same ? '1' : '0',
       shipping_rate_name: shipping.name,
+      ...orderAttributionColumns(attribution),
     });
 
     await OrderItem.bulkCreate(
@@ -141,7 +145,7 @@ router.post(
       customer_email: email,
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/checkout/cancel?order=${encodeURIComponent(order.number)}`,
-      metadata: { order_id: String(order.id), order_number: order.number },
+      metadata: { order_id: String(order.id), order_number: order.number, ...attributionMetadata(attribution) },
       line_items: [
         ...items.map((item) => ({
           quantity: item.quantity,

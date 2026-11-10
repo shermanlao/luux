@@ -5,6 +5,7 @@
 - [Shopify import](docs/shopify-import.md) — copy the live Shopify catalog into SQLite or Postgres
 - [Stripe](docs/stripe.md) — Checkout, webhook, and test cards
 - [Marketing](docs/marketing.md) — campaign JSON, bearer API, and social tokens
+- [Marketing funnel](docs/marketing-funnel.md) — general funnel: tracked links, 30-day attribution, and the staff report
 - [VPS](docs/vps.md) — second site on `187.7.21.12` (ports 3001 / 3334)
 - [Frontend UI](docs/frontend-ui.md) — buttons, tables, helpKey tips, currency selector
 

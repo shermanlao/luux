@@ -7,6 +7,7 @@ import PageView from '../models/PageView';
 import TrafficSource from '../models/TrafficSource';
 import TrafficCountry from '../models/TrafficCountry';
 import TrafficKind from '../models/TrafficKind';
+import { parseReportRange, reportWindow, type ReportRange } from './shared/marketing-funnel';
 import { VISITOR_KINDS, visitorKind } from './shared/visitorKind';
 import Product from '../models/Product';
 import ProductImage from '../models/ProductImage';
@@ -41,39 +42,14 @@ function sinceDate(): Date {
 }
 
 export const VISITOR_RANGES = ['7d', '30d', '90d', '12m'] as const;
-export type VisitorRange = (typeof VISITOR_RANGES)[number];
+export type VisitorRange = ReportRange;
 
 export function parseVisitorRange(value: unknown): VisitorRange {
-  const range = String(value || '30d');
-  return (VISITOR_RANGES as readonly string[]).includes(range) ? (range as VisitorRange) : '30d';
+  return parseReportRange(value);
 }
 
-function utcDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-export function visitorWindow(range: VisitorRange): { sinceDay: string; bucket: 'day' | 'month'; keys: string[] } {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  if (range === '12m') {
-    const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 11, 1));
-    const keys: string[] = [];
-    for (let i = 0; i < 12; i += 1) {
-      const month = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1));
-      keys.push(month.toISOString().slice(0, 7));
-    }
-    return { sinceDay: `${keys[0]}-01`, bucket: 'month', keys };
-  }
-  const days = range === '7d' ? 7 : range === '90d' ? 90 : 30;
-  const start = new Date(today);
-  start.setUTCDate(start.getUTCDate() - (days - 1));
-  const keys: string[] = [];
-  for (let i = 0; i < days; i += 1) {
-    const day = new Date(start);
-    day.setUTCDate(start.getUTCDate() + i);
-    keys.push(utcDay(day));
-  }
-  return { sinceDay: keys[0], bucket: 'day', keys };
+export function visitorWindow(range: VisitorRange, now = new Date()): { sinceDay: string; bucket: 'day' | 'month'; keys: string[] } {
+  return reportWindow(range, now);
 }
 
 export async function visitorSeries(app: string, range: VisitorRange) {

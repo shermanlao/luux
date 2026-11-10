@@ -78,6 +78,8 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.product.sort_title', title: 'Sort by name', body: 'Sort the product list by lamp name. Click again to reverse the order.' },
   { helpKey: 'admin.product.sort_price', title: 'Sort by price', body: 'Sort the product list by price. Click again to reverse the order.' },
   { helpKey: 'admin.product.sort_variants', title: 'Sort by variants', body: 'Sort the product list by the number of variants. Click again to reverse the order.' },
+  { helpKey: 'admin.product.sort_featured', title: 'Sort by featured', body: 'Sort the product list by featured lamps. The first click puts featured lamps first. Click again to reverse the order.' },
+  { helpKey: 'admin.product.featured', title: 'Featured on home', body: 'Show or hide this lamp in Featured products on the homepage. The same switch is on each row of the product list.' },
   { helpKey: 'admin.product.filter_collection', title: 'Collection', body: 'Show lamps in the chosen collection. All collections shows every lamp.' },
   { helpKey: 'admin.product.search', title: 'Search products', body: 'Find a lamp by name.' },
   { helpKey: 'admin.product.import', title: 'Read product', body: 'Read a product link and fill the title, details, variants, and photos. Nothing is saved until you save the product.' },
@@ -139,6 +141,8 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.integrations.pinterest_token', title: 'Pinterest token', body: 'Access token from developers.pinterest.com with boards:read and pins:write. Leave blank to keep the saved token.' },
   { helpKey: 'admin.integrations.marketing_key', title: 'Marketing key', body: 'Create a key an outside marketer sends as Bearer. It can read traffic, draft from shop data, edit a draft, and publish to the saved Facebook, Instagram, Threads, and Pinterest tokens. The full key is shown once.' },
   { helpKey: 'admin.marketing.range', title: 'Time range', body: 'Choose 7 days, 30 days, 90 days, or 12 months for the visitors chart. Twelve months adds each day into its month.' },
+  { helpKey: 'admin.marketing.funnel_range', title: 'Funnel range', body: 'Choose 7 days, 30 days, 90 days, or 12 months for the funnel.' },
+  { helpKey: 'admin.marketing.copy_link', title: 'Copy tracked link', body: 'Copy a destination link for each selected channel, with tracking parameters added.' },
   { helpKey: 'admin.marketing.ask', title: 'Ask AI', body: 'Read the last 30 days and draft posts. Nothing is published yet.' },
   { helpKey: 'admin.marketing.save', title: 'Save draft', body: 'Keep this caption, image, link, and channels.' },
   { helpKey: 'admin.marketing.confirm', title: 'Confirm and post', body: 'Publish this draft to the selected channels.' },
@@ -226,8 +230,15 @@ const PREVIOUS_ZH: Record<keyof typeof ENGLISH_COPY, string> = {
 
 const HEADER_LOGO = '/images/luux-logo.jpg';
 
-export const DEFAULT_COOKIE_NOTICE =
+const PREVIOUS_COOKIE_NOTICE =
   'We use a login cookie and keep your cart in this browser. We do not use advertising cookies. Allow or Reject is remembered for this network.';
+
+export const DEFAULT_COOKIE_NOTICE =
+  'We use a login cookie and keep your cart in this browser. A campaign link is remembered for 30 days so an order can be tied to that post. We do not use advertising cookies. Allow or Reject is remembered for this network.';
+
+const PREVIOUS_COOKIE_POLICY = 'LUUX does not use advertising or analytics cookies.';
+const NEXT_COOKIE_POLICY =
+  'LUUX does not use advertising cookies or third-party tracking pixels. A first-party cookie and this browser remember the campaign parameters on a link you opened, for 30 days, so a paid order can be tied to that post. That store does not hold a name, email, phone, address, or IP address.';
 
 async function ensureHeaderLogoColumn(): Promise<void> {
   const queryInterface = sequelize.getQueryInterface();
@@ -300,6 +311,40 @@ const ORDER_INVOICE_COLUMNS = [
   'invoice_country',
   'shipping_same',
 ];
+
+const ORDER_ATTRIBUTION_COLUMNS = [
+  'attr_source',
+  'attr_medium',
+  'attr_campaign',
+  'attr_content',
+  'attr_term',
+  'attr_channel',
+  'attr_landing_path',
+  'attr_first_touch_at',
+  'attr_last_touch_at',
+  'attr_purchased',
+];
+
+export async function ensureOrderAttributionColumns(): Promise<void> {
+  const queryInterface = sequelize.getQueryInterface();
+  const table = await queryInterface.describeTable('orders').catch(() => null);
+  if (!table) return;
+  for (const name of ORDER_ATTRIBUTION_COLUMNS) {
+    if (table[name]) continue;
+    await queryInterface.addColumn('orders', name, {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: '',
+    });
+  }
+  if (!table.attr_campaign_id) {
+    await queryInterface.addColumn('orders', 'attr_campaign_id', {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    });
+  }
+}
 
 export async function ensureOrderInvoiceColumns(): Promise<void> {
   const queryInterface = sequelize.getQueryInterface();
@@ -492,7 +537,7 @@ export async function ensureSiteSettings(): Promise<SiteSetting> {
   const existing = await SiteSetting.findByPk(1);
   if (existing) {
     let changed = applyEnglishCopy(existing);
-    if (!existing.cookie_notice) {
+    if (!existing.cookie_notice || existing.cookie_notice === PREVIOUS_COOKIE_NOTICE) {
       existing.cookie_notice = DEFAULT_COOKIE_NOTICE;
       changed = true;
     }
@@ -679,13 +724,19 @@ export async function ensureDefaultPages(): Promise<void> {
       handle: 'cookie-policy',
       kind: 'policy' as const,
       body_html: `<p>LUUX uses a login cookie so signed-in customers can see their orders. The cart, shipping choice, and currency are stored in this browser so checkout can finish. These are strictly necessary. The shop works the same if you choose Allow or Reject.</p>
-<p>LUUX does not use advertising or analytics cookies. Allow records consent for necessary cookies and for any non-essential cookies that may be added later. Reject records consent for necessary cookies only.</p>
+<p>${NEXT_COOKIE_POLICY} Allow records consent for necessary cookies and for any non-essential cookies that may be added later. Reject records consent for necessary cookies only.</p>
 <p>The choice is remembered for the network you used. The site stores a one-way hash of the IP address, not the address itself. A shared office or mobile network shares one choice. A different IP address is asked again.</p>`,
     },
   ];
   for (const page of pages) {
     const found = await Page.findOne({ where: { handle: page.handle } });
     if (!found) await Page.create(page);
+  }
+
+  const cookies = await Page.findOne({ where: { handle: 'cookie-policy' } });
+  if (cookies && cookies.body_html.includes(PREVIOUS_COOKIE_POLICY)) {
+    cookies.body_html = cookies.body_html.replace(PREVIOUS_COOKIE_POLICY, NEXT_COOKIE_POLICY);
+    await cookies.save();
   }
 
   const about = await Page.findOne({ where: { handle: 'about-us' } });

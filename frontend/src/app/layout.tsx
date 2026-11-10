@@ -44,7 +44,7 @@ const fallbackSite: SitePayload = {
     logo: '/images/luux-logo.jpg',
     logo_icon: '/images/luux-mark.jpg',
     cookie_notice:
-      'We use a login cookie and keep your cart in this browser. We do not use advertising cookies. Allow or Reject is remembered for this network.',
+      'We use a login cookie and keep your cart in this browser. A campaign link is remembered for 30 days so an order can be tied to that post. We do not use advertising cookies. Allow or Reject is remembered for this network.',
   },
   collections: [],
 };

@@ -3,8 +3,11 @@
 import { useEffect, useState } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import { useHelpTip } from '@/components/admin/HelpButton';
+import MarketingFunnel, { formatPercent, type FunnelRangeId } from '@/components/admin/MarketingFunnel';
 import VisitorChart, { type VisitorPoint } from '@/components/admin/VisitorChart';
 import Button from '@/components/ui/Button';
+import { trackedLinkForPost } from '@shared/marketing-funnel';
+import type { FunnelReport } from '@shared/marketing-funnel';
 import { TextareaField, TextInput } from '@/components/ui/FormField';
 import { showSaveNotice } from '@/components/ui/SaveNotice';
 
@@ -57,6 +60,12 @@ function formatStay(seconds: number): string {
   return `${mins} min ${rest} sec`;
 }
 
+function funnelLine(report: FunnelReport | null, id: number): string {
+  const row = report?.campaigns.find((item) => item.campaign_id === id);
+  if (!row || (!row.landings && !row.orders && !row.product_views && !row.add_to_carts && !row.checkout_starts)) return '';
+  return `Funnel: ${row.landings} landings, ${row.orders} paid orders, ${row.revenue} ${report?.totals.currency || 'HKD'}, ${formatPercent(row.conversion_rate)} conversion.`;
+}
+
 function cardsFrom(overview: Overview): Draft[] {
   return overview.campaigns.flatMap((document) =>
     document.campaigns.map((campaign) => ({ ...campaign, analysis: document.analysis }))
@@ -75,6 +84,9 @@ export default function AdminMarketingPage() {
   const [range, setRange] = useState<VisitorRangeId>('30d');
   const [series, setSeries] = useState<VisitorSeries | null>(null);
   const [seriesError, setSeriesError] = useState(false);
+  const [funnelRange, setFunnelRange] = useState<FunnelRangeId>('30d');
+  const [funnel, setFunnel] = useState<FunnelReport | null>(null);
+  const [funnelError, setFunnelError] = useState(false);
   const rangeTip = useHelpTip('admin.marketing.range');
   const [connected, setConnected] = useState<Record<Channel, boolean>>({
     facebook: false,
@@ -122,6 +134,26 @@ export default function AdminMarketingPage() {
       cancelled = true;
     };
   }, [range]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setFunnel(null);
+    setFunnelError(false);
+    fetch(`/api/marketing/v1/funnel?range=${funnelRange}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('failed');
+        return res.json();
+      })
+      .then((data: FunnelReport) => {
+        if (!cancelled) setFunnel(data);
+      })
+      .catch(() => {
+        if (!cancelled) setFunnelError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [funnelRange]);
 
   function update(id: number, patch: Partial<Draft>) {
     setDrafts((current) => current.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
@@ -181,6 +213,24 @@ export default function AdminMarketingPage() {
     if (posted) update(draft.id, posted);
     const failed = posted?.results.find((item) => item.status === 'failed');
     showSaveNotice(failed ? failed.error || 'A channel did not post' : 'Posted', failed ? 'error' : 'success');
+  }
+
+  async function copyLink(draft: Draft) {
+    const channels = draft.channels.filter((channel) => connected[channel]);
+    if (!draft.link.trim() || !channels.length) {
+      showSaveNotice('Add a link and a channel first', 'error');
+      return;
+    }
+    const lines = channels.map((channel) => {
+      const external = draft.results.find((item) => item.channel === channel)?.external_id || '';
+      return trackedLinkForPost(draft.link, 'luux', draft.id, channel, external, channels);
+    });
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      showSaveNotice(lines.length > 1 ? 'Tracked links copied' : 'Tracked link copied');
+    } catch {
+      showSaveNotice('Could not copy the link', 'error');
+    }
   }
 
   function exportDraft(draft: Draft) {
@@ -271,6 +321,7 @@ export default function AdminMarketingPage() {
       ) : (
         <p className="mt-3 text-sm text-gray-500">Loading the chart…</p>
       )}
+      <MarketingFunnel report={funnel} range={funnelRange} error={funnelError} onRange={setFunnelRange} />
       <h2 className="mt-6 text-sm font-medium">Who visited</h2>
       <p className="mt-1 text-sm text-gray-500">Human is a normal browser. AI is a known assistant or model crawler. Web scraping is other automated fetching, including search crawlers and scripts. The label is the browser name on the request, and that name is not stored. Earlier views are not included.</p>
       <ul className="mt-2 space-y-1 text-sm">
@@ -346,6 +397,7 @@ export default function AdminMarketingPage() {
             <p className="text-sm text-gray-500">
               {draft.status} · {draft.rationale}
             </p>
+            {funnelLine(funnel, draft.id) ? <p className="text-sm text-gray-600">{funnelLine(funnel, draft.id)}</p> : null}
             {draft.analysis.summary ? <p className="text-sm">{draft.analysis.summary}</p> : null}
             {draft.analysis.findings.length ? (
               <ul className="list-disc pl-5 text-sm text-gray-700">
@@ -401,6 +453,9 @@ export default function AdminMarketingPage() {
                 onClick={() => confirm(draft)}
               >
                 Confirm and post
+              </Button>
+              <Button helpKey="admin.marketing.copy_link" type="button" variant="ghost" onClick={() => copyLink(draft)}>
+                Copy tracked link
               </Button>
               <Button helpKey="admin.marketing.export" type="button" variant="ghost" onClick={() => exportDraft(draft)}>
                 Export JSON

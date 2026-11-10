@@ -6,7 +6,9 @@ import { requestAiDraft } from '../lib/marketing/ai';
 import { parseResults, toDocument } from '../lib/marketing/document';
 import { publishDraft } from '../lib/marketing/publish';
 import { isChannel, type CampaignDraft, type ChannelTokens, type MarketingChannel, type MarketingDocument, type MarketingInput } from '../lib/marketing/types';
+import { buildFunnelReport, campaignPurchases, compactFunnel } from '../lib/marketing/funnelLuux';
 import { connectedChannels, luuxMarketingInput, parseInputChannels, parseVisitorRange, trafficSummary, visitorSeries } from '../lib/marketingLuux';
+import { campaignKey, parseReportRange, trackedLinkForPost } from '../lib/shared/marketing-funnel';
 import { safeEqual } from '../lib/shared/hmac';
 import MarketingCampaign from '../models/MarketingCampaign';
 import SiteSetting from '../models/SiteSetting';
@@ -155,11 +157,13 @@ router.get(
     }
     const site = await SiteSetting.findByPk(1);
     const summary = await trafficSummary(app);
+    const funnel = compactFunnel(await buildFunnelReport(app, '30d'));
     const rows = await MarketingCampaign.findAll({ where: { app }, order: [['id', 'DESC']], limit: 20 });
     const connected = site && app === 'luux' ? connectedChannels(site) : parseInputChannels([]);
     res.json({
       app,
       ...summary,
+      funnel,
       connected: {
         facebook: connected.includes('facebook'),
         instagram: connected.includes('instagram'),
@@ -184,6 +188,61 @@ router.get(
       return;
     }
     res.json(await visitorSeries(app, parseVisitorRange(req.query.range)));
+  })
+);
+
+function zeroCampaign(row: MarketingCampaign) {
+  return {
+    campaign_id: row.id,
+    campaign: campaignKey(row.app, row.id),
+    channels: channelsOf(row.channels),
+    landings: 0,
+    product_views: 0,
+    add_to_carts: 0,
+    checkout_starts: 0,
+    orders: 0,
+    revenue: '0.00',
+    conversion_rate: 0,
+  };
+}
+
+router.get(
+  '/v1/funnel',
+  asyncHandler(async (req, res) => {
+    const app = appName(req.query.app, 'luux');
+    if (!app) {
+      res.status(400).json({ error: 'Choose an app name.' });
+      return;
+    }
+    if (!isStaff(res) && app !== 'luux') {
+      res.status(400).json({ error: 'This key is for the LUUX shop only.' });
+      return;
+    }
+    res.json(await buildFunnelReport(app, parseReportRange(req.query.range)));
+  })
+);
+
+router.get(
+  '/v1/funnel/campaigns/:id',
+  asyncHandler(async (req, res) => {
+    const row = await MarketingCampaign.findByPk(req.params.id);
+    if (!row || (!isStaff(res) && row.app !== 'luux')) {
+      res.status(404).json({ error: 'Campaign not found' });
+      return;
+    }
+    const range = parseReportRange(req.query.range);
+    const report = await buildFunnelReport(row.app, range);
+    const campaign = report.campaigns.find((item) => item.campaign_id === row.id) || zeroCampaign(row);
+    const orders = await campaignPurchases(row.app, row.id, range);
+    res.json({
+      app: row.app,
+      range,
+      model: report.model,
+      window_days: report.window_days,
+      currency: report.totals.currency,
+      ...campaign,
+      orders,
+    });
   })
 );
 
@@ -279,8 +338,12 @@ router.put(
     const body = req.body || {};
     if (body.caption != null) row.caption = String(body.caption).slice(0, 2000);
     if (body.image_url != null) row.image_url = String(body.image_url).slice(0, 400);
-    if (body.link != null) row.link = String(body.link).slice(0, 400);
+    if (body.link != null) row.link = String(body.link).slice(0, 2000);
     if (Array.isArray(body.channels)) row.channels = JSON.stringify(parseInputChannels(body.channels));
+    const channels = channelsOf(row.channels);
+    if (row.link.trim() && channels[0]) {
+      row.link = trackedLinkForPost(row.link, row.app, row.id, channels[0], '', channels).slice(0, 2000);
+    }
     row.status = 'draft';
     await row.save();
     res.json(documentFrom(row));
@@ -305,13 +368,16 @@ router.post(
       res.status(400).json({ error: 'Choose at least one channel.' });
       return;
     }
-    const results = await publishDraft(
+    const outcome = await publishDraft(
       draft,
       tokensFrom((req.body || {}) as Record<string, unknown>, site, row.app),
-      parseResults(row.results)
+      parseResults(row.results),
+      { app: row.app }
     );
-    const posted = results.length > 0 && results.every((item) => item.status === 'posted');
-    row.results = JSON.stringify(results);
+    const posted = outcome.results.length > 0 && outcome.results.every((item) => item.status === 'posted');
+    row.results = JSON.stringify(outcome.results);
+    row.link = outcome.link.slice(0, 2000);
+    row.caption = outcome.caption.slice(0, 2200);
     row.status = posted ? 'posted' : 'failed';
     await row.save();
     res.json(documentFrom(row));

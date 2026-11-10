@@ -543,7 +543,7 @@ export default function AdminProductEditorPage() {
         <HtmlField label="Description HTML" rows={8} value={body} onChange={setBody} />
         <div className="flex gap-6">
           <ToggleSwitch helpKey="admin.product.save" checked={published} onChange={setPublished} label="Published" />
-          <ToggleSwitch helpKey="admin.product.save" checked={featured} onChange={setFeatured} label="Featured on home" />
+          <ToggleSwitch helpKey="admin.product.featured" checked={featured} onChange={setFeatured} label="Featured on home" />
         </div>
         <div>
           <p className="admin-field-label">Collections</p>

@@ -1,4 +1,7 @@
+import { captionWithTrackedUrl, trackedLinkForPost } from '../shared/marketing-funnel';
 import type { CampaignDraft, ChannelResult, ChannelTokens, MarketingChannel } from './types';
+
+const CAPTION_CHANNELS = new Set<MarketingChannel>(['instagram', 'threads']);
 
 async function graph(url: string, body: Record<string, string>): Promise<Record<string, unknown>> {
   const response = await fetch(url, {
@@ -104,20 +107,40 @@ const POSTERS: Record<MarketingChannel, (draft: CampaignDraft, tokens: ChannelTo
   pinterest: postPinterest,
 };
 
+export type PublishOutcome = {
+  results: ChannelResult[];
+  link: string;
+  caption: string;
+};
+
 export async function publishDraft(
   draft: CampaignDraft,
   tokens: ChannelTokens,
-  previous: ChannelResult[] = []
-): Promise<ChannelResult[]> {
+  previous: ChannelResult[] = [],
+  meta: { app: string } = { app: 'luux' }
+): Promise<PublishOutcome> {
   const results: ChannelResult[] = [];
+  let link = draft.link;
+  let caption = draft.caption;
   for (const channel of draft.channels) {
     const already = previous.find((item) => item.channel === channel && item.status === 'posted');
+    const external = previous.find((item) => item.channel === channel && item.external_id)?.external_id || '';
+    const destination = draft.link.trim()
+      ? trackedLinkForPost(draft.link, meta.app, draft.id, channel, external, draft.channels)
+      : draft.link;
+    const channelCaption = CAPTION_CHANNELS.has(channel)
+      ? captionWithTrackedUrl(draft.caption, destination, draft.link, channel === 'threads' ? 500 : 2200)
+      : draft.caption;
+    if (link === draft.link && destination) link = destination;
+    if (caption === draft.caption && CAPTION_CHANNELS.has(channel) && channelCaption) caption = channelCaption;
     if (already) {
       results.push(already);
       continue;
     }
     try {
-      results.push(await POSTERS[channel](draft, tokens));
+      const result = await POSTERS[channel]({ ...draft, link: destination, caption: channelCaption }, tokens);
+      results.push(result);
+      if (result.status === 'posted' && destination) link = destination;
     } catch (error) {
       results.push({
         channel,
@@ -127,5 +150,5 @@ export async function publishDraft(
       });
     }
   }
-  return results;
+  return { results, link, caption };
 }

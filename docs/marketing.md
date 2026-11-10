@@ -33,7 +33,21 @@ A storefront beacon posts the path to `POST /api/traffic` when a normal browser 
 
 Each new page view is also labeled Human, AI, or Web scraping. The label comes from the browser name on the request. That name is not stored. Totals live in `traffic_kinds`. Human is a normal browser. AI is a known assistant or model crawler, such as GPTBot, ClaudeBot, PerplexityBot, Google-Extended, or Bytespider. Web scraping is other automated fetching, including search crawlers such as Googlebot and Bingbot, scripts such as curl, and headless browsers. A shop page requested by one of those clients is counted from the server, because those clients usually do not run the beacon. Country, source, and time on a page count browsers only. Page views, top pages, and the visitors chart include all three. A script that presents itself as Chrome is counted as Human. Views recorded before this change have no visitor type, so the three rows can add up to less than page views.
 
-There is no new cookie and no IP in those tables. A link with `utm_source` uses that label. A click from LUUX to another LUUX page does not add a source. Admin paths are skipped. Paid and fulfilled orders are summed by day for the LUUX overview. Staff see page views as a chart on Marketing. Time range (`admin.marketing.range`) is 7 days, 30 days, 90 days, or 12 months. Twelve months adds the days in each month. The other totals on that page stay on the last 30 days. Views recorded before the country change have no country, source, or stay time. The draft sent to the model includes `visitor_kinds` for this shop. Other apps can omit it.
+There is no IP in those tables. A link with `utm_source` uses that label. A click from LUUX to another LUUX page does not add a source. Admin paths are skipped. Paid and fulfilled orders are summed by day for the LUUX overview. Staff see page views as a chart on Marketing. Time range (`admin.marketing.range`) is 7 days, 30 days, 90 days, or 12 months. Twelve months adds the days in each month. The other shop-wide totals on that page stay on the last 30 days. Views recorded before the country change have no country, source, or stay time. The draft sent to the model includes `visitor_kinds` for this shop. Other apps can omit it.
+
+## Funnel
+
+The funnel is a general function. The rules and the URL helper live in `backend-server/src/lib/shared/marketing-funnel.ts`. Luux supplies the shop name, HKD, product paths, and the order table in `backend-server/src/lib/shared/marketing-funnel-luux.ts` and `backend-server/src/lib/marketing/funnelLuux.ts`. See [Marketing funnel](marketing-funnel.md).
+
+Staff see it on `/admin/marketing`, under the visitors chart. Time range (`admin.marketing.funnel_range`) is 7 days, 30 days, 90 days, or 12 months. It shows landings, product views, add to carts, checkout starts, paid orders, and paid revenue, then a table by campaign and a table by channel. Unattributed is its own row. A posted campaign card shows its own landings, orders, revenue, and conversion once any of those exist for the selected range.
+
+Orders use the last non-direct click within 30 days. The browser keeps that click in a first-party cookie and in local storage (`luux_attr`) for 30 days. The store holds the campaign parameters and two timestamps. It does not hold a name, email, phone, address, or IP address. A direct return inside 30 days still credits that click. A visitor who only arrived direct, or who cleared the store, is unattributed. Orders from before this shipped stay in the shop-wide paid totals and show as unattributed in the funnel. Earlier page views stay in the shop-wide totals and are not assigned to a campaign.
+
+Publish and **Copy tracked link** (`admin.marketing.copy_link`) add `utm_source`, `utm_medium`, `utm_campaign`, and `utm_content` when those are missing. A value already on the link is kept. For a post made in this shop the campaign is `luux-{id}` and the content is `{channel}-{external id or id}`. Medium for these posts is `organic_social`. Instagram and Threads have no separate link field, so the caption includes that tracked URL. Facebook and Pinterest use it as the link.
+
+A normal browser sends `landing` on the first page of a visit, and `product_view` on `/products/{handle}`. Adding to the cart sends `add_to_cart`. Opening checkout with items in the cart sends `checkout_start` once per browser session. Paying an order sends `purchase` from the attribution saved on the order, not from the browser at webhook time. Pending and cancelled orders are ignored. Marking a paid order fulfilled does not count it again. Shop-wide paid totals still include every paid and fulfilled order.
+
+Daily counts live in `funnel_events`. The order stores the same non-personal fields (`attr_source`, `attr_medium`, `attr_campaign`, `attr_content`, `attr_term`, `attr_channel`, `attr_landing_path`, `attr_campaign_id`, and the two timestamps). Stripe metadata receives those fields only. The marketing API does not return a customer name, email, phone, or address.
 
 ## Staff routes
 
@@ -41,8 +55,10 @@ Staff use the admin cookie. `app` defaults to `luux`.
 
 | Method | Path | Use |
 | --- | --- | --- |
-| GET | `/api/marketing/v1/overview` | Views, visitor type, countries, sources, average stay, top paths, paid totals, connected channels, saved campaigns |
+| GET | `/api/marketing/v1/overview` | Views, visitor type, countries, sources, average stay, top paths, paid totals, a compact funnel for the last 30 days, connected channels, saved campaigns |
 | GET | `/api/marketing/v1/visitors?range=30d` | Page views over time. `range` is `7d`, `30d`, `90d`, or `12m`. Days with no views are zero. `12m` sums each month |
+| GET | `/api/marketing/v1/funnel?range=30d&app=luux` | Funnel totals, by campaign, and by channel. A missing or unknown range uses 30 days |
+| GET | `/api/marketing/v1/funnel/campaigns/:id?range=30d` | Funnel for one campaign, plus order number, amount, currency, and attribution |
 | POST | `/api/marketing/v1/drafts` | Draft from shop data when `catalog` is omitted. A marketing key always uses shop data |
 | PUT | `/api/marketing/v1/drafts/:id` | Edit caption, image, link, and channels while it is not posted |
 | POST | `/api/marketing/v1/drafts/:id/publish` | Post the selected channels |
@@ -56,8 +72,10 @@ The key reads this shop only. `app` defaults to `luux`. Another app name is refu
 
 | Method | Path | What the key does |
 | --- | --- | --- |
-| GET | `/api/marketing/v1/overview` | Last 30 days: views, visitor type, countries, sources, average stay, top paths, paid totals, connected channels, saved campaigns |
+| GET | `/api/marketing/v1/overview` | Last 30 days: views, visitor type, countries, sources, average stay, top paths, paid totals, a compact funnel, connected channels, saved campaigns |
 | GET | `/api/marketing/v1/visitors?range=30d` | Page views for `7d`, `30d`, `90d`, or `12m`. A missing or unknown range uses 30 days |
+| GET | `/api/marketing/v1/funnel?range=30d` | Funnel for this shop. Another app name is refused |
+| GET | `/api/marketing/v1/funnel/campaigns/:id?range=30d` | Funnel for one LUUX campaign. Order rows omit contact details |
 | GET | `/api/marketing/v1/drafts/:id` | One campaign document |
 | POST | `/api/marketing/v1/drafts` | Draft from published products, traffic, and paid totals. An empty body is enough. Optional `channels` limits the draft to Facebook, Instagram, Threads, or Pinterest that already have tokens |
 | PUT | `/api/marketing/v1/drafts/:id` | Edit caption, image, link, and channels while it is not posted |

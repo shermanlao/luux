@@ -2,35 +2,9 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { trafficSourceLabel } from '@shared/marketing-funnel';
 import { visitorKind } from '@shared/visitorKind';
-
-function visitSource(): string {
-  const token = (new URLSearchParams(window.location.search).get('utm_source') || '').trim().toLowerCase();
-  if (token === 'ig' || token === 'instagram') return 'Instagram';
-  if (token === 'fb' || token === 'facebook') return 'Facebook';
-  if (token === 'google') return 'Google';
-  if (token === 'threads') return 'Threads';
-  if (token === 'pinterest') return 'Pinterest';
-  if (token === 'bing') return 'Bing';
-  if (token === 'yahoo') return 'Yahoo';
-  const referrer = document.referrer;
-  if (!referrer) return 'Direct';
-  try {
-    const host = new URL(referrer).hostname.replace(/^www\./, '').toLowerCase();
-    const here = window.location.hostname.replace(/^www\./, '').toLowerCase();
-    if (host === here) return '';
-    if (host.includes('instagram')) return 'Instagram';
-    if (host.includes('facebook') || host === 'fb.com' || host.endsWith('.fb.com')) return 'Facebook';
-    if (host.includes('google')) return 'Google';
-    if (host.includes('threads')) return 'Threads';
-    if (host.includes('pinterest')) return 'Pinterest';
-    if (host.includes('bing')) return 'Bing';
-    if (host.includes('yahoo')) return 'Yahoo';
-    return 'Other';
-  } catch {
-    return 'Direct';
-  }
-}
+import { noteVisit } from '@/lib/funnel';
 
 function postTraffic(body: Record<string, unknown>, keepalive = false) {
   void fetch('/api/traffic', {
@@ -49,8 +23,13 @@ export default function TrafficBeacon() {
     if (pathname.startsWith('/admin')) return;
     if (visitorKind(navigator.userAgent) !== 'Human') return;
     const path = pathname.split('?')[0].slice(0, 200);
-    const source = visitSource();
+    const source = trafficSourceLabel(
+      new URLSearchParams(window.location.search).get('utm_source') || '',
+      document.referrer,
+      window.location.hostname
+    );
     postTraffic(source ? { path, source } : { path });
+    noteVisit(path);
     const started = Date.now();
     let sent = false;
     const sendStay = () => {

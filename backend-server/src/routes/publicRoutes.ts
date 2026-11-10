@@ -19,7 +19,11 @@ import Page from '../models/Page';
 import Product from '../models/Product';
 import ShippingRate from '../models/ShippingRate';
 import SiteSetting from '../models/SiteSetting';
+import { recordFunnelHit } from '../lib/marketing/funnelLuux';
 import { recordTraffic } from '../lib/marketingLuux';
+import { CLIENT_FUNNEL_EVENTS, cleanPath, sanitizeAttribution, type ClientFunnelEvent } from '../lib/shared/marketing-funnel';
+import { FUNNEL_APP, isCheckoutStart, isProductPath } from '../lib/shared/marketing-funnel-luux';
+import { visitorKind } from '../lib/shared/visitorKind';
 import { productSearchOperator, productSearchPattern } from '../lib/shared/product-search';
 import { countryFromIp, visitorIp } from '../lib/visitorCountry';
 import { dbDialect } from '../database';
@@ -260,6 +264,38 @@ router.post(
       seconds: Number.isFinite(seconds) ? seconds : undefined,
       userAgent: forwardedAgent || req.get('user-agent') || '',
     });
+    res.json({ ok: true });
+  })
+);
+
+router.post(
+  '/funnel',
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 240, name: 'funnel' }),
+  asyncHandler(async (req, res) => {
+    if (visitorKind(req.get('user-agent') || '') !== 'Human') {
+      res.json({ ok: true });
+      return;
+    }
+    const path = cleanPath(String(req.body?.path || ''));
+    if (!path || path.startsWith('/admin')) {
+      res.status(400).json({ error: 'That path is not counted.' });
+      return;
+    }
+    const requested: unknown[] = Array.isArray(req.body?.events) ? req.body.events : [req.body?.event];
+    const events = requested
+      .map((item: unknown) => String(item || ''))
+      .filter((item: string): item is ClientFunnelEvent => (CLIENT_FUNNEL_EVENTS as readonly string[]).includes(item))
+      .slice(0, 4);
+    if (!events.length) {
+      res.status(400).json({ error: 'That event is not counted.' });
+      return;
+    }
+    const attribution = sanitizeAttribution(req.body?.attribution, FUNNEL_APP);
+    for (const event of events) {
+      if (event === 'product_view' && !isProductPath(path)) continue;
+      if (event === 'checkout_start' && !isCheckoutStart(path)) continue;
+      await recordFunnelHit({ event, path, attribution });
+    }
     res.json({ ok: true });
   })
 );

@@ -6,16 +6,18 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import { HelpLink, useHelpTip } from '@/components/admin/HelpButton';
 import AdminTable from '@/components/ui/AdminTable';
 import Button from '@/components/ui/Button';
+import ToggleSwitch from '@/components/ui/ToggleSwitch';
 import { formatHkd } from '@shared/slugify';
 import type { AdminTableColumn } from '@/components/ui/AdminTable';
 import type { Collection, Product } from '@/lib/types';
 
-type SortKey = 'title' | 'price' | 'variants';
+type SortKey = 'title' | 'price' | 'variants' | 'featured';
 type SortDir = 'asc' | 'desc';
 
 function compareProducts(a: Product, b: Product, key: SortKey) {
   if (key === 'title') return a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true });
   if (key === 'price') return Number(a.price) - Number(b.price);
+  if (key === 'featured') return Number(b.featured) - Number(a.featured);
   return a.variants.length - b.variants.length;
 }
 
@@ -29,6 +31,7 @@ export default function AdminProductsPage() {
   const collectionTip = useHelpTip('admin.product.filter_collection');
   const searchTip = useHelpTip('admin.product.search');
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
+  const [pendingFeatured, setPendingFeatured] = useState<number[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +72,27 @@ export default function AdminProductsPage() {
       if (!current || current.key !== key) return { key, dir: 'asc' };
       return { key, dir: current.dir === 'asc' ? 'desc' : 'asc' };
     });
+  }
+
+  async function setFeatured(product: Product, next: boolean) {
+    if (pendingFeatured.includes(product.id)) return;
+    const previous = product.featured;
+    setPendingFeatured((current) => [...current, product.id]);
+    setProducts((current) => current.map((row) => (row.id === product.id ? { ...row, featured: next } : row)));
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ featured: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.product) throw new Error('save failed');
+      setProducts((current) => current.map((row) => (row.id === product.id ? data.product : row)));
+    } catch {
+      setProducts((current) => current.map((row) => (row.id === product.id ? { ...row, featured: previous } : row)));
+    } finally {
+      setPendingFeatured((current) => current.filter((id) => id !== product.id));
+    }
   }
 
   function sortColumn(id: SortKey, label: string, helpKey: string): AdminTableColumn {
@@ -123,6 +147,7 @@ export default function AdminProductsPage() {
           sortColumn('title', 'Product', 'admin.product.sort_title'),
           sortColumn('price', 'Price', 'admin.product.sort_price'),
           sortColumn('variants', 'Variants', 'admin.product.sort_variants'),
+          sortColumn('featured', 'Featured', 'admin.product.sort_featured'),
         ]}
         loading={loading}
         empty={!rows.length}
@@ -148,6 +173,16 @@ export default function AdminProductsPage() {
               </td>
               <td className="px-6 py-3">{formatHkd(product.price)}</td>
               <td className="px-6 py-3">{product.variants.length}</td>
+              <td className="px-6 py-3" onClick={(event) => event.stopPropagation()}>
+                <ToggleSwitch
+                  helpKey="admin.product.featured"
+                  checked={product.featured}
+                  disabled={pendingFeatured.includes(product.id)}
+                  hideLabel
+                  label="Featured on home"
+                  onChange={(next) => void setFeatured(product, next)}
+                />
+              </td>
             </tr>
           );
         })}

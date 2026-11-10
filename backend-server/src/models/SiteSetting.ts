@@ -108,7 +108,7 @@ SiteSetting.init(
       type: DataTypes.TEXT,
       allowNull: false,
       defaultValue:
-        'We use a login cookie and keep your cart in this browser. We do not use advertising cookies. Allow or Reject is remembered for this network.',
+        'We use a login cookie and keep your cart in this browser. A campaign link is remembered for 30 days so an order can be tied to that post. We do not use advertising cookies. Allow or Reject is remembered for this network.',
     },
     ai_base_url: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     ai_api_key: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },

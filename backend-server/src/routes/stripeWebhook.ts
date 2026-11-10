@@ -1,22 +1,22 @@
 import type { Request, Response } from 'express';
 import Stripe from 'stripe';
+import { recordPurchase } from '../lib/marketing/funnelLuux';
 import { changeOrderStock } from '../lib/orderStock';
 import { getStripe, stripeWebhookSecret } from '../lib/stripe';
 import Order from '../models/Order';
 
 export async function markOrderPaid(order: Order, paymentIntent: string | null): Promise<void> {
-  if (order.status === 'paid' || order.status === 'fulfilled') {
-    if (paymentIntent && !order.stripe_payment_intent) {
-      order.stripe_payment_intent = paymentIntent;
-      await order.save();
-    }
-    return;
-  }
   if (order.status === 'cancelled') return;
-  await changeOrderStock(order.id, -1);
-  order.status = 'paid';
-  if (paymentIntent) order.stripe_payment_intent = paymentIntent;
-  await order.save();
+  if (order.status !== 'paid' && order.status !== 'fulfilled') {
+    await changeOrderStock(order.id, -1);
+    order.status = 'paid';
+    if (paymentIntent) order.stripe_payment_intent = paymentIntent;
+    await order.save();
+  } else if (paymentIntent && !order.stripe_payment_intent) {
+    order.stripe_payment_intent = paymentIntent;
+    await order.save();
+  }
+  await recordPurchase(order);
 }
 
 export async function stripeWebhook(req: Request, res: Response): Promise<void> {
