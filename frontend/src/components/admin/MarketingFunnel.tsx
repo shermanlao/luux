@@ -21,6 +21,66 @@ function money(amount: string, currency: string): string {
   return `${amount} ${currency}`;
 }
 
+const FUNNEL_STEPS = [
+  { key: 'landings', label: 'Landings', pick: (report: FunnelReport) => report.totals.landings },
+  { key: 'product_views', label: 'Product views', pick: (report: FunnelReport) => report.totals.product_views },
+  { key: 'add_to_carts', label: 'Add to cart', pick: (report: FunnelReport) => report.totals.add_to_carts },
+  { key: 'checkout_starts', label: 'Checkout', pick: (report: FunnelReport) => report.totals.checkout_starts },
+  { key: 'orders', label: 'Paid orders', pick: (report: FunnelReport) => report.totals.orders },
+] as const;
+
+const FUNNEL_FILLS = ['#d7ebe4', '#b7d6c9', '#8fb5a3', '#6a9484', '#3e6154'];
+const FUNNEL_INK = ['#1f2937', '#1f2937', '#111827', '#ffffff', '#ffffff'];
+
+function continued(current: number, previous: number): string {
+  if (previous <= 0) return '—';
+  return formatPercent(current / previous);
+}
+
+function FunnelShape({ report }: { report: FunnelReport }) {
+  const width = 760;
+  const height = 460;
+  const center = 280;
+  const halves = [248, 208, 168, 128, 90, 56];
+  const band = 74;
+  const gap = 14;
+  const top = 8;
+  const steps = FUNNEL_STEPS.map((step) => ({ ...step, count: step.pick(report) }));
+  const summary = steps.map((step) => `${step.label} ${step.count}`).join(', ');
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label={`Funnel. ${summary}.`}>
+      {steps.map((step, index) => {
+        const y0 = top + index * (band + gap);
+        const y1 = y0 + band;
+        const upper = halves[index];
+        const lower = halves[index + 1];
+        const previous = index === 0 ? step.count : steps[index - 1].count;
+        const rate = index === 0 ? '' : continued(step.count, previous);
+        return (
+          <g key={step.key}>
+            <polygon
+              points={`${center - upper},${y0} ${center + upper},${y0} ${center + lower},${y1} ${center - lower},${y1}`}
+              fill={FUNNEL_FILLS[index]}
+            />
+            <text x={center} y={y0 + 32} textAnchor="middle" fontSize="15" fill={FUNNEL_INK[index]}>
+              {step.label}
+            </text>
+            <text x={center} y={y0 + 56} textAnchor="middle" fontSize="22" fontWeight="600" fill={FUNNEL_INK[index]}>
+              {step.count}
+            </text>
+            {rate && rate !== '—' ? (
+              <text x={center + upper + 18} y={y0 + 8} fontSize="13" fill="#6b7280">
+                {rate} continued
+              </text>
+            ) : null}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 type Row = {
   key: string;
   label: string;
@@ -123,8 +183,9 @@ export default function MarketingFunnel({
         <div>
           <h2 className="text-sm font-medium">Funnel</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Landings, product views, carts, checkouts, and paid orders for the range you choose.
-            Orders use the last non-direct click within 30 days. Earlier orders can show as unattributed. No customer contact details are shown here.
+            Each stage is a narrower slice of the one above it. Orders use the last non-direct click within 30 days.
+            Earlier orders can show as unattributed. AI crawlers and web scrapers are left out, because they do not add to the cart or pay.
+            No customer contact details are shown here.
           </p>
         </div>
         <div className="w-44">
@@ -153,46 +214,23 @@ export default function MarketingFunnel({
         <p className="mt-3 text-sm text-gray-500">Loading the funnel…</p>
       ) : (
         <div className="mt-3">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded border border-gray-200 p-3">
-              <p className="text-sm text-gray-500">Landings</p>
-              <p className="text-2xl">{report.totals.landings}</p>
-            </div>
-            <div className="rounded border border-gray-200 p-3">
-              <p className="text-sm text-gray-500">Product views</p>
-              <p className="text-2xl">{report.totals.product_views}</p>
-            </div>
-            <div className="rounded border border-gray-200 p-3">
-              <p className="text-sm text-gray-500">Add to carts</p>
-              <p className="text-2xl">{report.totals.add_to_carts}</p>
-            </div>
-            <div className="rounded border border-gray-200 p-3">
-              <p className="text-sm text-gray-500">Checkout starts</p>
-              <p className="text-2xl">{report.totals.checkout_starts}</p>
-            </div>
-            <div className="rounded border border-gray-200 p-3">
-              <p className="text-sm text-gray-500">Paid orders</p>
-              <p className="text-2xl">{report.totals.orders}</p>
-            </div>
-            <div className="rounded border border-gray-200 p-3">
-              <p className="text-sm text-gray-500">Paid revenue</p>
-              <p className="text-2xl">{money(report.totals.revenue, currency)}</p>
-            </div>
-            <div className="rounded border border-gray-200 p-3">
-              <p className="text-sm text-gray-500">Conversion</p>
-              <p className="text-2xl">{formatPercent(report.totals.conversion_rate)}</p>
-            </div>
-            <div className="rounded border border-gray-200 p-3">
-              <p className="text-sm text-gray-500">Average order</p>
-              <p className="text-2xl">{report.totals.average_order_value ? money(report.totals.average_order_value, currency) : '—'}</p>
+          <div className="grid items-center gap-6 xl:grid-cols-[minmax(0,1.4fr)_18rem]">
+            <FunnelShape report={report} />
+            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              <div className="rounded border border-gray-200 p-3">
+                <p className="text-sm text-gray-500">Paid revenue</p>
+                <p className="text-2xl">{money(report.totals.revenue, currency)}</p>
+              </div>
+              <div className="rounded border border-gray-200 p-3">
+                <p className="text-sm text-gray-500">Conversion</p>
+                <p className="text-2xl">{formatPercent(report.totals.conversion_rate)}</p>
+              </div>
+              <div className="rounded border border-gray-200 p-3">
+                <p className="text-sm text-gray-500">Average order</p>
+                <p className="text-2xl">{report.totals.average_order_value ? money(report.totals.average_order_value, currency) : '—'}</p>
+              </div>
             </div>
           </div>
-          {report.totals.landings > 0 ? (
-            <p className="mt-3 text-sm text-gray-500">
-              Product views are {formatPercent(report.totals.product_view_rate)} of landings. Carts are {formatPercent(report.totals.cart_rate)} of product views.
-              Checkouts are {formatPercent(report.totals.checkout_rate)} of carts. Orders are {formatPercent(report.totals.purchase_rate)} of checkouts.
-            </p>
-          ) : null}
           {empty ? <p className="mt-3 text-sm text-gray-500">No funnel events in this range.</p> : null}
           <h3 className="mt-4 text-sm font-medium">By campaign</h3>
           <Table rows={campaignRows} currency={currency} />

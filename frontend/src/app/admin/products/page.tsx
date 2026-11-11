@@ -106,7 +106,7 @@ export default function AdminProductsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
+    <div className="w-full px-6 py-10">
       <AdminPageHeader
         title="Products"
         actions={

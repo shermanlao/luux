@@ -82,12 +82,12 @@ export default function AdminOrderPage() {
   }
 
   if (loading) {
-    return <div className="mx-auto max-w-6xl px-4 py-10 text-gray-500">Loading...</div>;
+    return <div className="w-full px-6 py-10 text-gray-500">Loading...</div>;
   }
 
   if (missing || !order) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-10">
+      <div className="w-full px-6 py-10">
         <AdminPageHeader title="Order" backHref="/admin/orders" backLabel="Back to Orders" />
         <p className="text-gray-500">Order not found.</p>
       </div>
@@ -110,7 +110,7 @@ export default function AdminOrderPage() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
+    <div className="w-full px-6 py-10">
       <AdminPageHeader title={order.number} backHref="/admin/orders" backLabel="Back to Orders" actions={actions} />
       <p className="mb-6 text-sm text-gray-500">
         Placed {placed || 'Unknown'}

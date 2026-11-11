@@ -479,7 +479,7 @@ export default function AdminProductEditorPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    <div className="w-full px-6 py-10">
       <AdminPageHeader
         title={isNew ? 'Add product' : 'Edit product'}
         backHref="/admin/products"

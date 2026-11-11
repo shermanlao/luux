@@ -67,7 +67,7 @@ export default function VisitorChart({ points }: { points: VisitorPoint[] }) {
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="h-auto w-full"
         role="img"
-        aria-label="Page views over time"
+        aria-label="Browser visits over time"
         onMouseMove={move}
         onMouseLeave={() => setHover(null)}
       >

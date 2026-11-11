@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import { useHelpTip } from '@/components/admin/HelpButton';
 import MarketingFunnel, { formatPercent, type FunnelRangeId } from '@/components/admin/MarketingFunnel';
+import KindChart from '@/components/admin/KindChart';
 import VisitorChart, { type VisitorPoint } from '@/components/admin/VisitorChart';
 import Button from '@/components/ui/Button';
 import { trackedLinkForPost } from '@shared/marketing-funnel';
@@ -260,9 +261,9 @@ export default function AdminMarketingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="w-full px-6 py-10">
       <AdminPageHeader title="Marketing" />
-      <p className="text-sm text-gray-600">Last 30 days. Page views include browsers, AI crawlers, and other automated fetching. Country, source, and time on a page count browsers only. The address itself is not stored. Nothing posts until you confirm.</p>
+      <p className="text-sm text-gray-600">Last 30 days. The page-view total includes browsers, AI crawlers, and other automated fetching. The visitors chart counts browsers only, because crawlers and scrapers do not place orders. Country, source, and time on a page count browsers only. The address itself is not stored. Nothing posts until you confirm.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded border border-gray-200 p-3">
           <p className="text-sm text-gray-500">Page views</p>
@@ -285,7 +286,7 @@ export default function AdminMarketingPage() {
         <div>
           <h2 className="text-sm font-medium">Visitors over time</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Page views for the range you choose. Quiet days stay on the chart as zero.
+            Browser visits for the range you choose. AI crawlers and web scrapers are left out. Quiet days stay on the chart as zero.
             {range === '12m' ? ' Each point is one month.' : ' Each point is one day.'}
           </p>
         </div>
@@ -313,7 +314,7 @@ export default function AdminMarketingPage() {
         <div className="mt-3 rounded border border-gray-200 p-3">
           <VisitorChart points={series.points} />
           <p className="mt-1 text-sm text-gray-500">
-            {series.points.reduce((sum, point) => sum + point.views, 0)} page views
+            {series.points.reduce((sum, point) => sum + point.views, 0)} browser visits
           </p>
         </div>
       ) : seriesError ? (
@@ -323,15 +324,8 @@ export default function AdminMarketingPage() {
       )}
       <MarketingFunnel report={funnel} range={funnelRange} error={funnelError} onRange={setFunnelRange} />
       <h2 className="mt-6 text-sm font-medium">Who visited</h2>
-      <p className="mt-1 text-sm text-gray-500">Human is a normal browser. AI is a known assistant or model crawler. Web scraping is other automated fetching, including search crawlers and scripts. The label is the browser name on the request, and that name is not stored. Earlier views are not included.</p>
-      <ul className="mt-2 space-y-1 text-sm">
-        {kinds.map((row) => (
-          <li key={row.kind} className="flex justify-between gap-4">
-            <span>{row.kind}</span>
-            <span>{row.count}</span>
-          </li>
-        ))}
-      </ul>
+      <p className="mt-1 text-sm text-gray-500">Human is a normal browser and the only group that can place an order. AI is a known assistant or model crawler. Web scraping is other automated fetching, including search crawlers and scripts. The label is the browser name on the request, and that name is not stored. Earlier views are not included.</p>
+      <KindChart rows={kinds} />
       <h2 className="mt-6 text-sm font-medium">Country</h2>
       <p className="mt-1 text-sm text-gray-500">Browser page views by country. Earlier views are not included.</p>
       {countries.length ? (

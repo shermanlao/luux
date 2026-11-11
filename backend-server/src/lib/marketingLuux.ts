@@ -54,9 +54,11 @@ export function visitorWindow(range: VisitorRange, now = new Date()): { sinceDay
 
 export async function visitorSeries(app: string, range: VisitorRange) {
   const window = visitorWindow(range);
-  const views = await PageView.findAll({ where: { app, day: { [Op.gte]: window.sinceDay } } });
+  const rows = await TrafficKind.findAll({
+    where: { app, kind: 'Human', day: { [Op.gte]: window.sinceDay } },
+  });
   const totals = new Map<string, number>();
-  for (const row of views) {
+  for (const row of rows) {
     const key = window.bucket === 'month' ? String(row.day).slice(0, 7) : row.day;
     totals.set(key, (totals.get(key) || 0) + row.count);
   }

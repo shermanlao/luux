@@ -168,9 +168,9 @@ export default function AdminIntegrationsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="w-full px-6 py-10">
       <AdminPageHeader title="Integrations" />
-      <form onSubmit={save} className="space-y-4">
+      <form onSubmit={save} className="grid items-start gap-x-8 gap-y-4 lg:grid-cols-2 [&>button]:col-span-full [&>h2]:col-span-full [&>p]:col-span-full [&>ul]:col-span-full">
         <h2 className="pt-2 text-lg">AI API</h2>
         <p className="text-sm text-gray-600">Marketing uses this key to draft posts. A blank key keeps the saved value.</p>
         <TextInput label="Base URL" value={form.ai_base_url} onChange={(e) => set('ai_base_url', e.target.value)} />
@@ -292,7 +292,7 @@ export default function AdminIntegrationsPage() {
         <Button helpKey="admin.integrations.marketing_key" type="button" variant="secondary" onClick={generateKey}>
           Generate marketing key
         </Button>
-        <div>
+        <div className="col-span-full">
           <Button helpKey="admin.integrations.save" type="submit">
             Save integrations
           </Button>

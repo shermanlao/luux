@@ -140,7 +140,7 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.integrations.pinterest_board', title: 'Pinterest board id', body: 'The board id from GET https://api.pinterest.com/v5/boards. It is the long number on the board, not the name in the board URL.' },
   { helpKey: 'admin.integrations.pinterest_token', title: 'Pinterest token', body: 'Access token from developers.pinterest.com with boards:read and pins:write. Leave blank to keep the saved token.' },
   { helpKey: 'admin.integrations.marketing_key', title: 'Marketing key', body: 'Create a key an outside marketer sends as Bearer. It can read traffic, draft from shop data, edit a draft, and publish to the saved Facebook, Instagram, Threads, and Pinterest tokens. The full key is shown once.' },
-  { helpKey: 'admin.marketing.range', title: 'Time range', body: 'Choose 7 days, 30 days, 90 days, or 12 months for the visitors chart. Twelve months adds each day into its month.' },
+  { helpKey: 'admin.marketing.range', title: 'Time range', body: 'Choose 7 days, 30 days, 90 days, or 12 months for the visitors chart. The chart counts browsers only. AI crawlers and web scrapers are left out because they do not place orders. Twelve months adds each day into its month.' },
   { helpKey: 'admin.marketing.funnel_range', title: 'Funnel range', body: 'Choose 7 days, 30 days, 90 days, or 12 months for the funnel.' },
   { helpKey: 'admin.marketing.copy_link', title: 'Copy tracked link', body: 'Copy a destination link for each selected channel, with tracking parameters added.' },
   { helpKey: 'admin.marketing.ask', title: 'Ask AI', body: 'Read the last 30 days and draft posts. Nothing is published yet.' },

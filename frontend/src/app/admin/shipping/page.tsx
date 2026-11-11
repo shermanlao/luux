@@ -95,7 +95,7 @@ export default function AdminShippingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="w-full px-6 py-10">
       <AdminPageHeader
         title="Shipping"
         actions={
@@ -107,24 +107,24 @@ export default function AdminShippingPage() {
       {loaded && !rates.length ? (
         <EmptyState>No shipping options yet.</EmptyState>
       ) : (
-        <div className="space-y-4">
+        <div className="grid gap-4 xl:grid-cols-2">
           {rates.map((rate, index) => (
             <Card key={rate.id}>
+              <div className="grid gap-3 md:grid-cols-3">
               <TextInput label="Name" value={rate.name} onChange={(e) => update(index, { name: e.target.value })} />
               <TextInput
-                className="mt-3"
                 label="Amount (HKD)"
                 value={rate.amount}
                 onChange={(e) => update(index, { amount: e.target.value })}
               />
               <TextInput
-                className="mt-3"
                 label="Countries"
                 helpKey="admin.shipping.countries"
                 hint="Use * for every country, or codes such as HK."
                 value={rate.countries}
                 onChange={(e) => update(index, { countries: e.target.value })}
               />
+              </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button helpKey="admin.shipping.save" disabled={savingId === rate.id} onClick={() => void save(rate)}>
                   {savingId === rate.id ? 'Saving…' : 'Save rates'}

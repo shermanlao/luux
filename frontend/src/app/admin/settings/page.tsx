@@ -157,9 +157,9 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="w-full px-6 py-10">
       <AdminPageHeader title="Settings" />
-      <form onSubmit={save} className="space-y-4">
+      <form onSubmit={save} className="grid items-start gap-x-8 gap-y-4 lg:grid-cols-2 [&>button]:col-span-full [&>h2]:col-span-full [&>p]:col-span-full">
         <TextInput label="Company" value={site.company_name} onChange={(e) => set('company_name', e.target.value)} />
         <TextInput label="Announcement" value={site.slogan} onChange={(e) => set('slogan', e.target.value)} />
         <TextInput label="Hero heading" value={site.hero_heading} onChange={(e) => set('hero_heading', e.target.value)} />
@@ -172,10 +172,10 @@ export default function AdminSettingsPage() {
           value={site.featured_handles.join(', ')}
           onChange={(e) => set('featured_handles', e.target.value.split(',').map((item) => item.trim()).filter(Boolean))}
         />
-        <TextareaField label="Story" rows={4} value={site.story_body} onChange={(e) => set('story_body', e.target.value)} />
+        <TextareaField className="lg:col-span-2" label="Story" rows={4} value={site.story_body} onChange={(e) => set('story_body', e.target.value)} />
         <TextInput label="Shop heading" value={site.shop_heading} onChange={(e) => set('shop_heading', e.target.value)} />
-        <TextareaField label="Shop body" rows={4} value={site.shop_body} onChange={(e) => set('shop_body', e.target.value)} />
-        <TextareaField label="Sanctuary heading" rows={3} value={site.sanctuary_heading} onChange={(e) => set('sanctuary_heading', e.target.value)} />
+        <TextareaField className="lg:col-span-2" label="Shop body" rows={4} value={site.shop_body} onChange={(e) => set('shop_body', e.target.value)} />
+        <TextareaField className="lg:col-span-2" label="Sanctuary heading" rows={3} value={site.sanctuary_heading} onChange={(e) => set('sanctuary_heading', e.target.value)} />
         <TextInput label="Email" value={site.contact_email} onChange={(e) => set('contact_email', e.target.value)} />
         <TextInput label="Phone" value={site.contact_phone} onChange={(e) => set('contact_phone', e.target.value)} />
         <TextInput label="Address" value={site.contact_address} onChange={(e) => set('contact_address', e.target.value)} />
@@ -186,8 +186,8 @@ export default function AdminSettingsPage() {
         <TextInput label="Header logo" value={site.logo} onChange={(e) => set('logo', e.target.value)} />
         <TextInput label="Browser icon" value={site.logo_icon} onChange={(e) => set('logo_icon', e.target.value)} />
         <TextInput label="SEO title" value={site.seo_title} onChange={(e) => set('seo_title', e.target.value)} />
-        <TextareaField label="SEO description" rows={3} value={site.seo_description} onChange={(e) => set('seo_description', e.target.value)} />
-        <TextareaField label="Cookie notice" rows={3} value={site.cookie_notice} onChange={(e) => set('cookie_notice', e.target.value)} />
+        <TextareaField className="lg:col-span-2" label="SEO description" rows={3} value={site.seo_description} onChange={(e) => set('seo_description', e.target.value)} />
+        <TextareaField className="lg:col-span-2" label="Cookie notice" rows={3} value={site.cookie_notice} onChange={(e) => set('cookie_notice', e.target.value)} />
         <h2 className="pt-4 text-xl font-semibold">Email</h2>
         <p className="text-sm text-gray-600">
           Paste the token from Hostinger → Emails → Agentic mail → API access. That token is the mail setup. Messages can send replies and read the inbox without an SMTP or IMAP server. A blank token keeps the saved one.

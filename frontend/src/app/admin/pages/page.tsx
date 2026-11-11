@@ -44,7 +44,7 @@ export default function AdminPagesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
+    <div className="w-full px-6 py-10">
       <AdminPageHeader title="Pages" />
       <AdminTable columns={['Title', 'Handle', 'Body', '']} loading={loading} empty={!pages.length}>
         {pages.map((page, index) => {

@@ -2,6 +2,8 @@
 
 Shared tokens live in `frontend/src/app/globals.css`. Wrappers live in `frontend/src/components/ui/`.
 
+Staff pages under `/admin` fill the width beside the left menu. Settings and Integrations place short fields in two columns on a wide window. Shipping places rate cards side by side. Dialogs stay narrower than the window.
+
 - `.btn-primary` — black fill
 - `.btn-accent` — blue fill, used for Add to cart and the Checkout button on the “Added to cart” note (`helpKey` `notice.checkout`)
 - `.btn-secondary` — black border
