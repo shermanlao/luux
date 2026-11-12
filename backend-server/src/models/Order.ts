@@ -49,6 +49,7 @@ class Order extends Model {
   declare attr_first_touch_at: string;
   declare attr_last_touch_at: string;
   declare attr_purchased: string;
+  declare staff_notice: string;
   declare createdAt: Date;
 }
 
@@ -99,6 +100,7 @@ Order.init(
     attr_first_touch_at: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     attr_last_touch_at: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
     attr_purchased: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+    staff_notice: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
   },
   { sequelize, modelName: 'Order', tableName: 'orders' }
 );

@@ -5,6 +5,7 @@ import {
   ensureCustomerProfileColumns,
   ensureOrderAttributionColumns,
   ensureOrderInvoiceColumns,
+  ensureOrderNoticeColumn,
   ensureProductImageOptionTags,
   ensureProductVendorColumns,
   ensureTrafficColumns,
@@ -77,6 +78,7 @@ async function syncDatabase() {
     await ensureCustomerProfileColumns();
     await ensureOrderInvoiceColumns();
     await ensureOrderAttributionColumns();
+    await ensureOrderNoticeColumn();
     await ensureProductImageOptionTags();
     await ensureProductVendorColumns();
     await ensureTrafficColumns();

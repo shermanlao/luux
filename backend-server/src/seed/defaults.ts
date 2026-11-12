@@ -346,6 +346,17 @@ export async function ensureOrderAttributionColumns(): Promise<void> {
   }
 }
 
+export async function ensureOrderNoticeColumn(): Promise<void> {
+  const queryInterface = sequelize.getQueryInterface();
+  const table = await queryInterface.describeTable('orders').catch(() => null);
+  if (!table || table.staff_notice) return;
+  await queryInterface.addColumn('orders', 'staff_notice', {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: '',
+  });
+}
+
 export async function ensureOrderInvoiceColumns(): Promise<void> {
   const queryInterface = sequelize.getQueryInterface();
   const table = await queryInterface.describeTable('orders').catch(() => null);

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import Stripe from 'stripe';
 import { recordPurchase } from '../lib/marketing/funnelLuux';
+import { notifyPaidOrder } from '../lib/orderNotice';
 import { changeOrderStock } from '../lib/orderStock';
 import { getStripe, stripeWebhookSecret } from '../lib/stripe';
 import Order from '../models/Order';
@@ -17,6 +18,9 @@ export async function markOrderPaid(order: Order, paymentIntent: string | null):
     await order.save();
   }
   await recordPurchase(order);
+  if (order.status === 'paid' || order.status === 'fulfilled') {
+    await notifyPaidOrder(order);
+  }
 }
 
 export async function stripeWebhook(req: Request, res: Response): Promise<void> {
@@ -59,7 +63,13 @@ export async function stripeWebhook(req: Request, res: Response): Promise<void> 
       const paid = event.type === 'checkout.session.async_payment_succeeded' || session.payment_status === 'paid';
       if (paid) {
         const intent = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id || null;
-        await markOrderPaid(order, intent);
+        try {
+          await markOrderPaid(order, intent);
+        } catch (error) {
+          console.error('Paid order notice failed:', error instanceof Error ? error.message : error);
+          res.status(500).json({ error: 'Order notice email failed.' });
+          return;
+        }
       }
     }
   }
