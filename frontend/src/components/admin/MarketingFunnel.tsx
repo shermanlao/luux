@@ -1,6 +1,8 @@
 'use client';
 
+import { useRef } from 'react';
 import { useHelpTip } from '@/components/admin/HelpButton';
+import { useElementSize } from '@/components/admin/useElementSize';
 import type { FunnelReport } from '@shared/marketing-funnel';
 
 export const FUNNEL_RANGES = [
@@ -37,47 +39,67 @@ function continued(current: number, previous: number): string {
   return formatPercent(current / previous);
 }
 
+const FUNNEL_HEIGHT = 280;
+const FUNNEL_FRACTIONS = [1, 0.82, 0.64, 0.46, 0.3, 0.16];
+
 function FunnelShape({ report }: { report: FunnelReport }) {
-  const width = 760;
-  const height = 460;
-  const center = 280;
-  const halves = [248, 208, 168, 128, 90, 56];
-  const band = 74;
-  const gap = 14;
-  const top = 8;
+  const boxRef = useRef<HTMLDivElement>(null);
+  const { width } = useElementSize(boxRef);
+  const height = FUNNEL_HEIGHT;
   const steps = FUNNEL_STEPS.map((step) => ({ ...step, count: step.pick(report) }));
   const summary = steps.map((step) => `${step.label} ${step.count}`).join(', ');
+  const side = width >= 520 ? 'full' : width >= 360 ? 'short' : 'none';
+  const gutter = side === 'full' ? 132 : side === 'short' ? 64 : 8;
+  const padL = 4;
+  const top = 4;
+  const bottom = 4;
+  const gap = 6;
+  const band = (height - top - bottom - gap * (steps.length - 1)) / steps.length;
+  const plotW = Math.max(48, width - padL - gutter);
+  const center = padL + plotW / 2;
+  const halves = FUNNEL_FRACTIONS.map((fraction) => (plotW / 2) * fraction);
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label={`Funnel. ${summary}.`}>
-      {steps.map((step, index) => {
-        const y0 = top + index * (band + gap);
-        const y1 = y0 + band;
-        const upper = halves[index];
-        const lower = halves[index + 1];
-        const previous = index === 0 ? step.count : steps[index - 1].count;
-        const rate = index === 0 ? '' : continued(step.count, previous);
-        return (
-          <g key={step.key}>
-            <polygon
-              points={`${center - upper},${y0} ${center + upper},${y0} ${center + lower},${y1} ${center - lower},${y1}`}
-              fill={FUNNEL_FILLS[index]}
-            />
-            <text x={center} y={y0 + 32} textAnchor="middle" fontSize="15" fill={FUNNEL_INK[index]}>
-              {step.label}
-            </text>
-            <text x={center} y={y0 + 56} textAnchor="middle" fontSize="22" fontWeight="600" fill={FUNNEL_INK[index]}>
-              {step.count}
-            </text>
-            {rate && rate !== '—' ? (
-              <text x={center + upper + 18} y={y0 + 8} fontSize="13" fill="#6b7280">
-                {rate} continued
-              </text>
-            ) : null}
-          </g>
-        );
-      })}
-    </svg>
+    <div ref={boxRef} className="h-[280px] w-full">
+      {width > 0 ? (
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="block h-[280px] w-full"
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={`Funnel. ${summary}.`}
+        >
+          {steps.map((step, index) => {
+            const y0 = top + index * (band + gap);
+            const y1 = y0 + band;
+            const upper = halves[index];
+            const lower = halves[index + 1];
+            const previous = index === 0 ? step.count : steps[index - 1].count;
+            const rate = index === 0 ? '' : continued(step.count, previous);
+            const showRate = Boolean(rate && rate !== '—' && side !== 'none');
+            return (
+              <g key={step.key}>
+                <polygon
+                  points={`${center - upper},${y0} ${center + upper},${y0} ${center + lower},${y1} ${center - lower},${y1}`}
+                  fill={FUNNEL_FILLS[index]}
+                />
+                <text x={center} y={y0 + 18} textAnchor="middle" fontSize="13" fill={FUNNEL_INK[index]}>
+                  {step.label}
+                </text>
+                <text x={center} y={y0 + 40} textAnchor="middle" fontSize="18" fontWeight="600" fill={FUNNEL_INK[index]}>
+                  {step.count}
+                </text>
+                {showRate ? (
+                  <text x={center + upper + 10} y={y0 + band * 0.55} fontSize="12" fill="#6b7280">
+                    {side === 'full' ? `${rate} continued` : rate}
+                  </text>
+                ) : null}
+              </g>
+            );
+          })}
+        </svg>
+      ) : null}
+    </div>
   );
 }
 

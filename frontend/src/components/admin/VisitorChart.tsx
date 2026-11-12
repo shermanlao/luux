@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, type MouseEvent } from 'react';
+import { useRef, useState, type MouseEvent } from 'react';
+import { useElementSize } from '@/components/admin/useElementSize';
 
 export type VisitorPoint = { day: string; views: number };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const WIDTH = 640;
-const HEIGHT = 220;
-const PAD = { l: 44, r: 12, t: 16, b: 28 };
+const HEIGHT = 240;
+const PAD = { l: 44, r: 16, t: 16, b: 28 };
 
 export function formatVisitorDay(day: string): string {
   const [year, month, date] = day.split('-');
@@ -33,9 +33,12 @@ function tickIndexes(count: number): number[] {
 }
 
 export default function VisitorChart({ points }: { points: VisitorPoint[] }) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const { width } = useElementSize(boxRef);
   const [hover, setHover] = useState<number | null>(null);
   if (!points.length) return null;
-  const innerW = WIDTH - PAD.l - PAD.r;
+  const drawWidth = Math.max(width, PAD.l + PAD.r + 1);
+  const innerW = drawWidth - PAD.l - PAD.r;
   const innerH = HEIGHT - PAD.t - PAD.b;
   const peak = niceMax(points.reduce((max, point) => Math.max(max, point.views), 0));
   const yOf = (views: number) => PAD.t + innerH - (views / peak) * innerH;
@@ -52,7 +55,7 @@ export default function VisitorChart({ points }: { points: VisitorPoint[] }) {
   function move(event: MouseEvent<SVGSVGElement>) {
     if (!points.length) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * WIDTH;
+    const x = ((event.clientX - rect.left) / rect.width) * drawWidth;
     if (points.length === 1) {
       setHover(0);
       return;
@@ -62,10 +65,12 @@ export default function VisitorChart({ points }: { points: VisitorPoint[] }) {
   }
 
   return (
-    <div className="relative">
+    <div ref={boxRef} className="relative h-[240px] w-full">
+      {width > 0 ? (
       <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        className="h-auto w-full"
+        viewBox={`0 0 ${drawWidth} ${HEIGHT}`}
+        className="block h-[240px] w-full"
+        preserveAspectRatio="none"
         role="img"
         aria-label="Browser visits over time"
         onMouseMove={move}
@@ -75,13 +80,13 @@ export default function VisitorChart({ points }: { points: VisitorPoint[] }) {
           <g key={tick}>
             <line
               x1={PAD.l}
-              x2={WIDTH - PAD.r}
+              x2={drawWidth - PAD.r}
               y1={yOf(tick)}
               y2={yOf(tick)}
               stroke="#e5e7eb"
               strokeWidth="1"
             />
-            <text x={PAD.l - 8} y={yOf(tick) + 4} textAnchor="end" fontSize="11" fill="#6b7280">
+            <text x={PAD.l - 8} y={yOf(tick) + 4} textAnchor="end" fontSize="12" fill="#6b7280">
               {tick}
             </text>
           </g>
@@ -109,16 +114,17 @@ export default function VisitorChart({ points }: { points: VisitorPoint[] }) {
         {tickIndexes(points.length).map((index) => {
           const edge = index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle';
           return (
-            <text key={points[index].day} x={xOf(index)} y={HEIGHT - 8} textAnchor={edge} fontSize="11" fill="#6b7280">
+            <text key={points[index].day} x={xOf(index)} y={HEIGHT - 8} textAnchor={edge} fontSize="12" fill="#6b7280">
               {formatVisitorDay(points[index].day)}
             </text>
           );
         })}
       </svg>
-      {active && hover != null ? (
+      ) : null}
+      {active && hover != null && width > 0 ? (
         <p
           className="pointer-events-none absolute top-0 rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm"
-          style={{ left: `${(xOf(hover) / WIDTH) * 100}%`, transform: 'translateX(-50%)' }}
+          style={{ left: `${(xOf(hover) / drawWidth) * 100}%`, transform: 'translateX(-50%)' }}
         >
           {formatVisitorDay(active.day)} · {active.views}
         </p>
