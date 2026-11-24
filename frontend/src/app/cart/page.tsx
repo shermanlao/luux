@@ -1,35 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
 import { useCart } from '@/lib/cart';
 import { useCurrency } from '@/lib/currency';
-import { readShippingId, writeShippingId } from '@/lib/shippingChoice';
-import type { ShippingRate } from '@/lib/types';
 
 export default function CartPage() {
   const { lines, subtotal, setQuantity, remove } = useCart();
   const { format } = useCurrency();
-  const [rates, setRates] = useState<ShippingRate[]>([]);
-  const [shippingId, setShippingId] = useState<number | ''>('');
 
-  useEffect(() => {
-    fetch('/api/shipping')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        const list: ShippingRate[] = data?.rates || [];
-        setRates(list);
-        const saved = readShippingId();
-        const pick = list.find((row) => row.id === saved) || list[0];
-        if (pick) setShippingId(pick.id);
-      })
-      .catch(() => setRates([]));
-  }, []);
-
-  const rate = rates.find((row) => row.id === shippingId);
-  const shipping = Number(rate?.amount || 0);
-  const total = subtotal + shipping;
   if (!lines.length) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16">
@@ -75,33 +54,12 @@ export default function CartPage() {
           <span>Subtotal</span>
           <span>{format(subtotal)}</span>
         </p>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <label htmlFor="cart-shipping" className="text-sm">
-            Shipping
-          </label>
-          <div className="flex items-center gap-4">
-            <select
-              id="cart-shipping"
-              className="select-field w-auto"
-              value={shippingId}
-              onChange={(event) => {
-                const id = Number(event.target.value);
-                setShippingId(id);
-                writeShippingId(id);
-              }}
-            >
-              {rates.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.name}
-                </option>
-              ))}
-            </select>
-            <span>{format(shipping)}</span>
-          </div>
-        </div>
+        <p className="text-sm text-gray-600">
+          Enter your delivery address at checkout to see shipping. Shipping is not included in this subtotal until then.
+        </p>
         <p className="flex justify-between text-lg font-medium">
-          <span>Total</span>
-          <span>{format(total)}</span>
+          <span>Subtotal due at checkout</span>
+          <span>{format(subtotal)}</span>
         </p>
         <div className="flex justify-end pt-2">
           <Button helpKey="cart.checkout" href="/checkout">

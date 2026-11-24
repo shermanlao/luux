@@ -19,6 +19,11 @@ export const HK_REMOTE_AREA_MARKERS = [
   '馬灣',
   '赤鱲角',
   '離島',
+  '長洲',
+  '南丫',
+  '坪洲',
+  '梅窩',
+  '大澳',
 ] as const;
 
 export type HongKongAddressFields = {

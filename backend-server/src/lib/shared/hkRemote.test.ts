@@ -8,6 +8,8 @@ describe('Hong Kong remote delivery', () => {
     assert.equal(isRemoteHongKongDelivery({ city: 'Tung Chung' }), true);
     assert.equal(isRemoteHongKongDelivery({ line1: '12 Discovery Bay Road' }), true);
     assert.equal(isRemoteHongKongDelivery({ city: 'Kowloon', line1: '88 Nathan Road' }), false);
+    assert.equal(isRemoteHongKongDelivery({ city: '長洲' }), true);
+    assert.equal(isRemoteHongKongDelivery({ line1: '梅窩碼頭' }), true);
   });
 
   it('picks the standard or remote HK rate', () => {

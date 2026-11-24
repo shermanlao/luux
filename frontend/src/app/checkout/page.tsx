@@ -9,7 +9,7 @@ import { copyInvoiceToShipping, EMPTY_ADDRESS, PostalAddressFields, type Address
 import { useCart } from '@/lib/cart';
 import { useCurrency } from '@/lib/currency';
 import type { ShippingRate } from '@/lib/types';
-import { phoneDigits } from '@shared/address';
+import { deliveryAddressReady, phoneDigits } from '@shared/address';
 import { shippingRateEligible } from '@shared/shipping';
 import { formatHkd } from '@shared/slugify';
 import { currentAttribution, recordCheckoutStart } from '@/lib/funnel';
@@ -48,13 +48,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     fetch('/api/shipping')
       .then((res) => res.json())
-      .then((data) => {
-        const list = data.rates || [];
-        setRates(list);
-        const saved = readShippingId();
-        const pick = list.find((row: ShippingRate) => row.id === saved) || list[0];
-        if (pick) setShippingId(pick.id);
-      })
+      .then((data) => setRates(data.rates || []))
       .catch(() => setError('Could not load shipping rates.'));
   }, []);
 
@@ -97,6 +91,9 @@ export default function CheckoutPage() {
   }, []);
 
   const destinationCountry = form.shipping_same ? form.invoice_country : form.shipping_country;
+  const deliveryNames = form.shipping_same
+    ? { first_name: form.invoice_first_name, last_name: form.invoice_last_name }
+    : { first_name: form.shipping_first_name, last_name: form.shipping_last_name };
   const deliveryAddress = form.shipping_same
     ? {
         line1: form.invoice_line1,
@@ -110,16 +107,31 @@ export default function CheckoutPage() {
         city: form.shipping_city,
         region: form.shipping_region,
       };
-  const available = rates.filter((row) => shippingRateEligible(row, destinationCountry, deliveryAddress));
-  const rate = available.find((row) => row.id === shippingId);
-  const total = subtotal + Number(rate?.amount || 0);
+  const deliveryReady = deliveryAddressReady(destinationCountry, {
+    ...deliveryNames,
+    line1: deliveryAddress.line1,
+    city: deliveryAddress.city,
+  });
+  const available = deliveryReady ? rates.filter((row) => shippingRateEligible(row, destinationCountry, deliveryAddress)) : [];
+  const rate = deliveryReady ? available.find((row) => row.id === shippingId) : undefined;
   const remoteQuoted = rate?.code === 'hk-remote';
+  const shippingAmount = rate && !remoteQuoted ? Number(rate.amount) : 0;
+  const total = subtotal + shippingAmount;
 
   useEffect(() => {
-    if (!rates.length) return;
+    if (!rates.length || !deliveryReady) {
+      setShippingId('');
+      return;
+    }
     const nextRates = rates.filter((row) => shippingRateEligible(row, destinationCountry, deliveryAddress));
+    if (!nextRates.length) {
+      setShippingId('');
+      return;
+    }
     if (nextRates.some((row) => row.id === shippingId)) return;
-    const next = nextRates[0];
+    const saved = readShippingId();
+    const restored = saved ? nextRates.find((row) => row.id === saved) : null;
+    const next = restored || (nextRates.length === 1 ? nextRates[0] : null);
     if (!next) {
       setShippingId('');
       return;
@@ -128,12 +140,15 @@ export default function CheckoutPage() {
     writeShippingId(next.id);
   }, [
     rates,
+    deliveryReady,
     destinationCountry,
     shippingId,
     deliveryAddress.line1,
     deliveryAddress.line2,
     deliveryAddress.city,
     deliveryAddress.region,
+    deliveryNames.first_name,
+    deliveryNames.last_name,
   ]);
 
   function patch(next: Partial<CheckoutForm>) {
@@ -158,6 +173,10 @@ export default function CheckoutPage() {
     }
     if (phoneDigits(form.phone) < 6) {
       setError('Enter a contact number with at least 6 digits.');
+      return;
+    }
+    if (!deliveryReady || !rate || !shippingId) {
+      setError('Enter your delivery name, address, city, and country to see shipping.');
       return;
     }
     setBusy(true);
@@ -231,29 +250,33 @@ export default function CheckoutPage() {
             <PostalAddressFields kind="shipping" form={form} onChange={patch} />
           </>
         )}
-        <SelectField
-          label="Shipping"
-          value={shippingId}
-          onChange={(event) => {
-            const id = Number(event.target.value);
-            setShippingId(id);
-            writeShippingId(id);
-          }}
-        >
-          {available.map((row) => (
-            <option key={row.id} value={row.id}>
-              {row.code === 'hk-remote' ? `${row.name} — Quoted separately` : `${row.name} — ${format(row.amount)}`}
-            </option>
-          ))}
-        </SelectField>
+        {deliveryReady ? (
+          <SelectField
+            label="Shipping"
+            value={shippingId}
+            onChange={(event) => {
+              const id = Number(event.target.value);
+              setShippingId(id);
+              writeShippingId(id);
+            }}
+          >
+            {available.map((row) => (
+              <option key={row.id} value={row.id}>
+                {row.code === 'hk-remote' ? `${row.name} — Quoted separately` : `${row.name} — ${format(row.amount)}`}
+              </option>
+            ))}
+          </SelectField>
+        ) : (
+          <p className="text-sm text-gray-600">Enter your delivery name, address, city, and country to see shipping.</p>
+        )}
         {remoteQuoted ? (
           <p className="text-sm text-gray-600">
             Remote Hong Kong delivery is not included in the product price. We will quote or charge shipping separately after
             reviewing your address.
           </p>
         ) : null}
-        {!available.length ? <AlertBanner>No shipping rate covers this country.</AlertBanner> : null}
-        <Button helpKey="checkout.pay" type="submit" disabled={busy || !rate}>
+        {deliveryReady && !available.length ? <AlertBanner>No shipping rate covers this country.</AlertBanner> : null}
+        <Button helpKey="checkout.pay" type="submit" disabled={busy || !deliveryReady || !rate}>
           {busy ? 'Redirecting…' : 'Pay with Stripe'}
         </Button>
       </form>
@@ -268,12 +291,17 @@ export default function CheckoutPage() {
         ))}
         <p className="mt-4 flex justify-between">
           <span>Shipping</span>
-          <span>{remoteQuoted ? 'Quoted separately' : format(rate?.amount || 0)}</span>
+          <span>
+            {!deliveryReady ? 'Enter address' : remoteQuoted ? 'Quoted separately' : rate ? format(rate.amount) : '—'}
+          </span>
         </p>
         <p className="mt-2 flex justify-between text-lg font-medium">
           <span>Total</span>
-          <span>{format(total)}</span>
+          <span>{deliveryReady && rate ? format(total) : format(subtotal)}</span>
         </p>
+        {!deliveryReady ? (
+          <p className="mt-2 text-xs text-gray-500">Total excludes shipping until your delivery address is entered.</p>
+        ) : null}
         {code !== 'HKD' ? (
           <p className="mt-3 text-xs text-gray-500">Card payment is collected in Hong Kong dollars ({formatHkd(total)}).</p>
         ) : null}

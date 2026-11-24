@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { addressReady, addressTouched, cleanTrackingUrl, orderStatusLabel, personName, phoneOk, profileError, readPostal, registrationError } from './address';
+import {
+  addressReady,
+  addressTouched,
+  cleanTrackingUrl,
+  deliveryAddressReady,
+  orderStatusLabel,
+  personName,
+  phoneOk,
+  profileError,
+  readPostal,
+  registrationError,
+} from './address';
 
 const EMPTY = {
   first_name: '',
@@ -20,6 +31,8 @@ describe('postal address', () => {
     const address = { ...EMPTY, first_name: 'Ada', last_name: 'Lovelace', line1: '1 Lamp Street', city: 'Central', country: 'HK' };
     assert.equal(personName(address), 'Ada Lovelace');
     assert.equal(addressReady(address), true);
+    assert.equal(deliveryAddressReady('HK', address), true);
+    assert.equal(deliveryAddressReady('HK', { ...address, line1: '' }), false);
     assert.equal(addressTouched(EMPTY), false);
   });
 
