@@ -107,6 +107,7 @@ async function saveVariantsAndOptions(productId: number, body: Record<string, un
         option3?: string | null;
         stock?: number;
         image_id?: number | null;
+        cogs_hkd?: string;
       };
       const payload: {
         product_id: number;
@@ -119,6 +120,7 @@ async function saveVariantsAndOptions(productId: number, body: Record<string, un
         option3: string | null;
         stock: number;
         image_id?: number | null;
+        cogs_hkd?: string;
       } = {
         product_id: productId,
         title: clip(row.title || [row.option1, row.option2, row.option3].filter(Boolean).join(' / ') || 'Default Title'),
@@ -132,6 +134,10 @@ async function saveVariantsAndOptions(productId: number, body: Record<string, un
       };
       if (Object.prototype.hasOwnProperty.call(row, 'image_id')) {
         payload.image_id = row.image_id ? Number(row.image_id) : null;
+      }
+      if (Object.prototype.hasOwnProperty.call(row, 'cogs_hkd')) {
+        const cogs = String(row.cogs_hkd ?? '').trim();
+        payload.cogs_hkd = cogs ? Number(cogs).toFixed(2) : '';
       }
       if (row.id) {
         const existing = await Variant.findOne({ where: { id: row.id, product_id: productId } });
@@ -252,7 +258,7 @@ router.post(
     const synced = Array.isArray(req.body?.option_tags) ? await syncVariantPhotos(product.id) : null;
     res.json({
       image: serializeImage(image),
-      ...(synced ? { variants: synced.variants.map(serializeVariant) } : {}),
+      ...(synced ? { variants: synced.variants.map((variant) => serializeVariant(variant, { admin: true })) } : {}),
     });
   })
 );
@@ -331,7 +337,10 @@ router.put(
     res.json({
       image: serializeImage(image),
       ...(synced
-        ? { images: synced.images.map(serializeImage), variants: synced.variants.map(serializeVariant) }
+        ? {
+            images: synced.images.map(serializeImage),
+            variants: synced.variants.map((variant) => serializeVariant(variant, { admin: true })),
+          }
         : {}),
     });
   })

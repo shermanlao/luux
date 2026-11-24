@@ -7,7 +7,7 @@ import Button from '@/components/ui/Button';
 import { showSaveNotice } from '@/components/ui/SaveNotice';
 import { useCart } from '@/lib/cart';
 import { useCurrency } from '@/lib/currency';
-import { matchVariant, shopOptions } from '@/lib/variants';
+import { defaultVariantSelection, matchVariant, shopOptions } from '@/lib/variants';
 import type { Product } from '@/lib/types';
 
 export default function AddToCartDialog({
@@ -27,7 +27,7 @@ export default function AddToCartDialog({
 
   useEffect(() => {
     if (!open || !product) return;
-    setSelected(shopOptions(product).map((option) => option.values[0] || ''));
+    setSelected(defaultVariantSelection(product));
   }, [open, product]);
 
   useEffect(() => {

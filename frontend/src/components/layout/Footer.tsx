@@ -135,6 +135,12 @@ export default function Footer({ site }: { site: SiteSettings }) {
             <HelpLink helpKey="nav.about" href="/policies/terms-of-service" className="text-gray-600 hover:underline">
               Terms of service
             </HelpLink>
+            <HelpLink helpKey="nav.about" href="/policies/shipping-policy" className="text-gray-600 hover:underline">
+              Shipping policy
+            </HelpLink>
+            <HelpLink helpKey="nav.about" href="/pages/about-us" className="text-gray-600 hover:underline">
+              About us
+            </HelpLink>
             <HelpLink helpKey="nav.contact" href="/pages/contact" className="text-gray-600 hover:underline">
               Contact information
             </HelpLink>
@@ -143,6 +149,12 @@ export default function Footer({ site }: { site: SiteSettings }) {
             {SOCIALS.map((social) => {
               const href = site[social.field];
               if (!href) return null;
+              if (
+                (social.field === 'threads_url' && /^https:\/\/(www\.)?threads\.net\/?$/i.test(href)) ||
+                (social.field === 'pinterest_url' && /^https:\/\/(www\.)?pinterest\.com\/?$/i.test(href))
+              ) {
+                return null;
+              }
               return (
                 <HelpLink
                   key={social.field}

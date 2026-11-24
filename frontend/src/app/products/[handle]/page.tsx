@@ -7,7 +7,11 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
   const { handle } = await params;
   try {
     const { product } = await loadProduct(handle);
-    return { title: product.title };
+    const text = product.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 155);
+    return {
+      title: product.title,
+      description: text || `${product.title} from LUUX. Prices in HKD. Standard Hong Kong delivery is included where shown at checkout.`,
+    };
   } catch {
     return {};
   }

@@ -6,19 +6,27 @@ export type TrackingDraft = {
   tracking_carrier: string;
   tracking_number: string;
   tracking_url: string;
+  actual_shipping_cost: string;
 };
 
 export const EMPTY_TRACKING: TrackingDraft = {
   tracking_carrier: '',
   tracking_number: '',
   tracking_url: '',
+  actual_shipping_cost: '',
 };
 
-export function trackingFromOrder(order: { tracking_carrier?: string; tracking_number?: string; tracking_url?: string }): TrackingDraft {
+export function trackingFromOrder(order: {
+  tracking_carrier?: string;
+  tracking_number?: string;
+  tracking_url?: string;
+  actual_shipping_cost?: string;
+}): TrackingDraft {
   return {
     tracking_carrier: order.tracking_carrier || '',
     tracking_number: order.tracking_number || '',
     tracking_url: order.tracking_url || '',
+    actual_shipping_cost: order.actual_shipping_cost || '',
   };
 }
 
@@ -45,6 +53,12 @@ export default function TrackingForm({
         label="Tracking link"
         value={value.tracking_url}
         onChange={(event) => onChange({ ...value, tracking_url: event.target.value })}
+      />
+      <TextInput
+        label="Actual shipping cost (HKD, optional)"
+        inputMode="decimal"
+        value={value.actual_shipping_cost}
+        onChange={(event) => onChange({ ...value, actual_shipping_cost: event.target.value })}
       />
     </div>
   );

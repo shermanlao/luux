@@ -147,6 +147,8 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.marketing.save', title: 'Save draft', body: 'Keep this caption, image, link, and channels.' },
   { helpKey: 'admin.marketing.confirm', title: 'Confirm and post', body: 'Publish this draft to the selected channels.' },
   { helpKey: 'admin.marketing.export', title: 'Export JSON', body: 'Download this campaign document for another app.' },
+  { helpKey: 'admin.marketing.spend_add', title: 'Add spend', body: 'Save a marketing or content spend row in HKD for the ROI report.' },
+  { helpKey: 'admin.marketing.spend_delete', title: 'Delete spend', body: 'Remove this spend row from the ROI report.' },
   { helpKey: 'admin.shipping.add', title: 'Add option', body: 'Add a shipping option. Set the name, amount, and countries, then save it.' },
   { helpKey: 'admin.shipping.delete', title: 'Delete option', body: 'Remove this shipping option from checkout.' },
   { helpKey: 'admin.shipping.countries', title: 'Countries', body: 'Use * for every country, or country codes such as HK.' },
@@ -204,7 +206,7 @@ const ENGLISH_COPY = {
   story_body: 'We believe in creating luminous atmospheres through thoughtfully designed lighting solutions.',
   shop_heading: 'Our shop',
   shop_body:
-    'With a keen eye for contemporary design, our store specializes in illuminating living spaces through modern wall lamps. We embrace innovative craftsmanship that marries artistry with function.',
+    'With a keen eye for contemporary design, our store offers pendant, wall, table, floor, and ceiling lamps for living spaces. We embrace innovative craftsmanship that marries artistry with function.',
   sanctuary_heading:
     'Transform your home into a sanctuary of light and shadow. Experience the subtle interplay of form and function.',
   newsletter_heading: 'Join our community',
@@ -536,6 +538,10 @@ function applyEnglishCopy(site: SiteSetting): boolean {
     site.seo_description = 'Modern lighting for living spaces. Pendant, wall, table, floor, and ceiling lamps.';
     changed = true;
   }
+  if (site.shop_body.includes('modern wall lamps') && site.shop_body.includes('specializes')) {
+    site.shop_body = ENGLISH_COPY.shop_body;
+    changed = true;
+  }
   return changed;
 }
 
@@ -856,6 +862,64 @@ export async function ensureDefaultPages(): Promise<void> {
       terms.body_html = next;
       await terms.save();
     }
+  }
+
+  const contact = await Page.findOne({ where: { handle: 'contact' } });
+  if (contact && contact.body_html.includes('Welcome to LUUX') && contact.body_html.includes('replica')) {
+    contact.body_html = '<p>Email hello@luuxmart.com or call +852 6898 8613. Use the form on this page to send a message.</p>';
+    await contact.save();
+  }
+  if (about) {
+    let body = about.body_html;
+    if (body.includes('Providing authentic, high-quality lighting products')) {
+      body = body.replace(
+        'Providing authentic, high-quality lighting products',
+        'Offering carefully selected replica lighting designs'
+      );
+    }
+    if (body.includes('authentic, high-quality')) {
+      body = body.replace(/authentic, high-quality/gi, 'replica');
+    }
+    if (/secure and reliable shipping/i.test(body)) {
+      body = body.replace(
+        /Ensuring secure and reliable shipping[^.<]*/gi,
+        'Delivery follows our shipping policy: standard Hong Kong delivery is included in the posted price where applicable; remote addresses are quoted separately'
+      );
+    }
+    if (body !== about.body_html) {
+      about.body_html = body;
+      await about.save();
+    }
+  }
+}
+
+const SHOOTING_STAR_OLD_HANDLE =
+  'italian-designer-table-lamp-led-crystal-eye-of-the-sky-free-shipping-egg-shaped-lamps-living-bedroom-decor-light-night-projector';
+const SHOOTING_STAR_NEW_HANDLE =
+  'italian-designer-table-lamp-led-crystal-eye-of-the-sky-egg-shaped-lamps-living-bedroom-decor-light-night-projector';
+
+export async function ensureProductCatalogMigrations(): Promise<void> {
+  const shooting = await Product.findOne({ where: { handle: SHOOTING_STAR_OLD_HANDLE } });
+  if (shooting) {
+    shooting.handle = SHOOTING_STAR_NEW_HANDLE;
+    await shooting.save();
+  }
+  const spaceship = await Product.findOne({ where: { title: { [Op.like]: '%Tension WIre%' } } });
+  if (spaceship) {
+    spaceship.title = spaceship.title.replace('Tension WIre', 'Tension Wire');
+    await spaceship.save();
+  }
+}
+
+export async function ensureMarketingFinanceColumns(): Promise<void> {
+  const queryInterface = sequelize.getQueryInterface();
+  const variants = await queryInterface.describeTable('variants').catch(() => null);
+  if (variants && !variants.cogs_hkd) {
+    await queryInterface.addColumn('variants', 'cogs_hkd', { type: DataTypes.STRING, allowNull: false, defaultValue: '' });
+  }
+  const orders = await queryInterface.describeTable('orders').catch(() => null);
+  if (orders && !orders.actual_shipping_cost) {
+    await queryInterface.addColumn('orders', 'actual_shipping_cost', { type: DataTypes.STRING, allowNull: false, defaultValue: '' });
   }
 }
 

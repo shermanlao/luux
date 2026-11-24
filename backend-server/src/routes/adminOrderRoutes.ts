@@ -4,6 +4,7 @@ import { requireAdmin } from '../lib/authMiddleware';
 import { changeOrderStock } from '../lib/orderStock';
 import { serializeOrder } from '../lib/serialize';
 import { cleanTrackingUrl, clipText } from '../lib/shared/address';
+import { normalizeShippingAmount } from '../lib/shared/shipping';
 import Order from '../models/Order';
 import OrderItem from '../models/OrderItem';
 import Product from '../models/Product';
@@ -68,6 +69,10 @@ router.post(
     order.tracking_carrier = carrier;
     order.tracking_number = trackingNumber;
     order.tracking_url = trackingUrl;
+    if (Object.prototype.hasOwnProperty.call(body, 'actual_shipping_cost')) {
+      const raw = String(body.actual_shipping_cost ?? '').trim();
+      order.actual_shipping_cost = raw ? normalizeShippingAmount(raw) || '' : '';
+    }
     if (order.status === 'paid') order.status = 'fulfilled';
     await order.save();
     res.json({ order: serializeOrder(order) });

@@ -37,7 +37,7 @@ export default async function HomePage() {
         <div>
           <p className="text-lg leading-relaxed text-gray-700">{site.story_body}</p>
           <div className="mt-4">
-            <Button helpKey="home.learn_more" variant="secondary" href="/pages/contact">
+            <Button helpKey="home.learn_more" variant="secondary" href="/pages/about-us">
               Learn more
             </Button>
           </div>

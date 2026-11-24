@@ -15,6 +15,7 @@ import adminCatalogRoutes from './routes/adminCatalogRoutes';
 import adminContentRoutes from './routes/adminContentRoutes';
 import adminMessageRoutes from './routes/adminMessageRoutes';
 import adminOrderRoutes from './routes/adminOrderRoutes';
+import adminMarketingSpendRoutes from './routes/adminMarketingSpendRoutes';
 import uploadRoutes from './routes/uploadRoutes';
 import marketingRoutes from './routes/marketingRoutes';
 
@@ -53,6 +54,7 @@ app.use('/api/admin', adminCatalogRoutes);
 app.use('/api/admin', adminContentRoutes);
 app.use('/api/admin', adminMessageRoutes);
 app.use('/api/admin', adminOrderRoutes);
+app.use('/api/admin', adminMarketingSpendRoutes);
 app.use('/api/admin/upload', uploadRoutes);
 app.use('/api/marketing', marketingRoutes);
 

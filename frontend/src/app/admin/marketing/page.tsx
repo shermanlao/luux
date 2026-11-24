@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import { useHelpTip } from '@/components/admin/HelpButton';
 import MarketingFunnel, { formatPercent, type FunnelRangeId } from '@/components/admin/MarketingFunnel';
+import MarketingRoiPanel from '@/components/admin/MarketingRoiPanel';
 import KindChart from '@/components/admin/KindChart';
 import VisitorChart, { type VisitorPoint } from '@/components/admin/VisitorChart';
 import Button from '@/components/ui/Button';
@@ -458,6 +459,7 @@ export default function AdminMarketingPage() {
           </section>
         ))}
       </div>
+      <MarketingRoiPanel />
     </div>
   );
 }

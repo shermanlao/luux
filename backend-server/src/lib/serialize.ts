@@ -29,7 +29,7 @@ export function serializeImage(image: ProductImage) {
   };
 }
 
-export function serializeVariant(variant: Variant) {
+export function serializeVariant(variant: Variant, extra?: { admin?: boolean }) {
   return {
     id: variant.id,
     title: variant.title,
@@ -42,6 +42,7 @@ export function serializeVariant(variant: Variant) {
     stock: variant.stock,
     image_id: variant.image_id,
     available: variant.stock > 0,
+    ...(extra?.admin ? { cogs_hkd: variant.cogs_hkd || '' } : {}),
   };
 }
 
@@ -239,6 +240,7 @@ export function serializeOrder(order: Order & { items?: OrderLine[]; updatedAt?:
     tracking_carrier: order.tracking_carrier || '',
     tracking_number: order.tracking_number || '',
     tracking_url: order.tracking_url || '',
+    actual_shipping_cost: order.actual_shipping_cost || '',
     stripe_session_id: order.stripe_session_id,
     stripe_payment_intent: order.stripe_payment_intent,
     createdAt: timestamp(order.createdAt),

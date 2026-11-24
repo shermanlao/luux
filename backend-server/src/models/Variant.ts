@@ -14,6 +14,7 @@ class Variant extends Model {
   declare stock: number;
   declare image_id: number | null;
   declare shopify_id: string | null;
+  declare cogs_hkd: string;
 }
 
 Variant.init(
@@ -30,6 +31,7 @@ Variant.init(
     stock: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 10 },
     image_id: { type: DataTypes.INTEGER, allowNull: true },
     shopify_id: { type: DataTypes.STRING, allowNull: true },
+    cogs_hkd: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
   },
   { sequelize, modelName: 'Variant', tableName: 'variants' }
 );

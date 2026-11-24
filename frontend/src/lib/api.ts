@@ -45,5 +45,8 @@ export async function loadShipping() {
 }
 
 export function siteOrigin(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_ORIGIN || 'http://localhost:3000').replace(/\/$/, '');
+  const fromEnv = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_ORIGIN || '').replace(/\/$/, '');
+  if (fromEnv && !/localhost|127\.0\.0\.1/i.test(fromEnv)) return fromEnv;
+  if (process.env.NODE_ENV === 'production') return 'https://luuxmart.com';
+  return fromEnv || 'http://127.0.0.1:3000';
 }

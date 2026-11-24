@@ -1,6 +1,6 @@
 # Marketing
 
-Staff open `/admin/marketing` to read the last 30 days and draft posts. **Ask AI** uses the AI base URL, key, and model saved on Integrations. A blank model sends `grok-4.7` when the base URL is `api.x.ai`, and `gpt-4o-mini` otherwise. **Confirm and post** is the only action that publishes. Nothing posts on its own.
+Staff open `/admin/marketing` to read the last 30 days and draft posts. The **Marketing spend & ROI** section at the bottom records HKD spend (post, ad, or other change) by date and channel, then compares total spend to paid order revenue in the same date range. Revenue ÷ spend is shown when spend is greater than zero; otherwise ROI is labeled not calculable. Optional variant COGS and order actual shipping cost improve gross-profit ÷ spend when you enter real numbers. **Ask AI** uses the AI base URL, key, and model saved on Integrations. A blank model sends `grok-4.7` when the base URL is `api.x.ai`, and `gpt-4o-mini` otherwise. **Confirm and post** is the only action that publishes. Nothing posts on its own.
 
 The same campaign document is what another app receives from the HTTP API.
 
