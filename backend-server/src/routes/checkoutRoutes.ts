@@ -5,7 +5,7 @@ import { applyCheckoutProfile, orderAddressColumns, readCheckoutProfile } from '
 import { nextOrderNumber } from '../lib/orderNumber';
 import { rateLimit } from '../lib/rateLimit';
 import { addressReady, phoneDigits } from '../lib/shared/address';
-import { shippingMatchesCountry } from '../lib/shared/shipping';
+import { shippingMatchesCountry, shippingRateEligible } from '../lib/shared/shipping';
 import { attributionMetadata, orderAttributionColumns, sanitizeAttribution } from '../lib/shared/marketing-funnel';
 import { FUNNEL_APP } from '../lib/shared/marketing-funnel-luux';
 import { hkdToCents } from '../lib/shared/slugify';
@@ -91,6 +91,17 @@ router.post(
     }
     if (!shippingMatchesCountry(shipping.countries, delivery.country)) {
       res.status(400).json({ error: 'That shipping rate does not cover this country.' });
+      return;
+    }
+    if (
+      !shippingRateEligible(shipping, delivery.country, {
+        line1: delivery.line1,
+        line2: delivery.line2,
+        city: delivery.city,
+        region: delivery.region,
+      })
+    ) {
+      res.status(400).json({ error: 'Choose a shipping rate that matches this delivery address.' });
       return;
     }
     const subtotal = items.reduce((sum, item) => sum + hkdToCents(item.unit_price) * item.quantity, 0);

@@ -19,11 +19,11 @@ describe('receptionIntent', () => {
 describe('simple answers', () => {
   it('quotes the Hong Kong rate', () => {
     const answer = shippingAnswer('shipping to Hong Kong', [
-      { name: 'Hong Kong', code: 'hk', amount: '80.00' },
-      { name: 'Worldwide', code: 'world', amount: '280.00' },
+      { name: 'Hong Kong delivery (included in price)', code: 'hk', amount: '0.00' },
+      { name: 'Overseas delivery from HK$280', code: 'world', amount: '280.00' },
     ]);
-    assert.match(answer || '', /Hong Kong shipping is HK\$80\.00/);
-    assert.doesNotMatch(answer || '', /Worldwide/);
+    assert.match(answer || '', /included in the posted product price/);
+    assert.doesNotMatch(answer || '', /Overseas/);
   });
 
   it('leaves the hidden payment-test rate out of a general shipping answer', () => {

@@ -147,6 +147,7 @@ async function importPages(): Promise<void> {
     ['privacy-policy', 'Privacy policy'],
     ['refund-policy', 'Refund policy'],
     ['terms-of-service', 'Terms of service'],
+    ['shipping-policy', 'Shipping policy'],
   ];
   for (const [handle, title] of policies) {
     try {

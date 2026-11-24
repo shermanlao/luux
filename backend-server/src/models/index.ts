@@ -13,6 +13,7 @@ import {
   ensureDefaultPages,
   ensurePaymentTestProduct,
   ensureShippingRates,
+  ensureShippingRateUpdates,
   ensureSiteSettings,
   upsertHelpTips,
 } from '../seed/defaults';
@@ -87,6 +88,7 @@ async function syncDatabase() {
     await ensureSiteSettings();
     await ensureCurrencies();
     await ensureShippingRates();
+    await ensureShippingRateUpdates();
     await ensurePaymentTestProduct();
     await ensureDefaultPages();
     console.log('All models were synchronized successfully.');

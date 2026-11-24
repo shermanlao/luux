@@ -10,7 +10,7 @@ import { useCart } from '@/lib/cart';
 import { useCurrency } from '@/lib/currency';
 import type { ShippingRate } from '@/lib/types';
 import { phoneDigits } from '@shared/address';
-import { shippingMatchesCountry } from '@shared/shipping';
+import { shippingRateEligible } from '@shared/shipping';
 import { formatHkd } from '@shared/slugify';
 import { currentAttribution, recordCheckoutStart } from '@/lib/funnel';
 import { readShippingId, writeShippingId } from '@/lib/shippingChoice';
@@ -97,13 +97,27 @@ export default function CheckoutPage() {
   }, []);
 
   const destinationCountry = form.shipping_same ? form.invoice_country : form.shipping_country;
-  const available = rates.filter((row) => shippingMatchesCountry(row.countries, destinationCountry));
+  const deliveryAddress = form.shipping_same
+    ? {
+        line1: form.invoice_line1,
+        line2: form.invoice_line2,
+        city: form.invoice_city,
+        region: form.invoice_region,
+      }
+    : {
+        line1: form.shipping_line1,
+        line2: form.shipping_line2,
+        city: form.shipping_city,
+        region: form.shipping_region,
+      };
+  const available = rates.filter((row) => shippingRateEligible(row, destinationCountry, deliveryAddress));
   const rate = available.find((row) => row.id === shippingId);
   const total = subtotal + Number(rate?.amount || 0);
+  const remoteQuoted = rate?.code === 'hk-remote';
 
   useEffect(() => {
     if (!rates.length) return;
-    const nextRates = rates.filter((row) => shippingMatchesCountry(row.countries, destinationCountry));
+    const nextRates = rates.filter((row) => shippingRateEligible(row, destinationCountry, deliveryAddress));
     if (nextRates.some((row) => row.id === shippingId)) return;
     const next = nextRates[0];
     if (!next) {
@@ -112,7 +126,15 @@ export default function CheckoutPage() {
     }
     setShippingId(next.id);
     writeShippingId(next.id);
-  }, [rates, destinationCountry, shippingId]);
+  }, [
+    rates,
+    destinationCountry,
+    shippingId,
+    deliveryAddress.line1,
+    deliveryAddress.line2,
+    deliveryAddress.city,
+    deliveryAddress.region,
+  ]);
 
   function patch(next: Partial<CheckoutForm>) {
     setForm((current) => ({ ...current, ...next }));
@@ -220,10 +242,16 @@ export default function CheckoutPage() {
         >
           {available.map((row) => (
             <option key={row.id} value={row.id}>
-              {row.name} — {format(row.amount)}
+              {row.code === 'hk-remote' ? `${row.name} — Quoted separately` : `${row.name} — ${format(row.amount)}`}
             </option>
           ))}
         </SelectField>
+        {remoteQuoted ? (
+          <p className="text-sm text-gray-600">
+            Remote Hong Kong delivery is not included in the product price. We will quote or charge shipping separately after
+            reviewing your address.
+          </p>
+        ) : null}
         {!available.length ? <AlertBanner>No shipping rate covers this country.</AlertBanner> : null}
         <Button helpKey="checkout.pay" type="submit" disabled={busy || !rate}>
           {busy ? 'Redirecting…' : 'Pay with Stripe'}
@@ -240,7 +268,7 @@ export default function CheckoutPage() {
         ))}
         <p className="mt-4 flex justify-between">
           <span>Shipping</span>
-          <span>{format(rate?.amount || 0)}</span>
+          <span>{remoteQuoted ? 'Quoted separately' : format(rate?.amount || 0)}</span>
         </p>
         <p className="mt-2 flex justify-between text-lg font-medium">
           <span>Total</span>

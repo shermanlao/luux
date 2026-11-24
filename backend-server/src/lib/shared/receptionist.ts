@@ -67,7 +67,12 @@ export function shippingAnswer(text: string, rates: Rate[]): string | null {
     return true;
   });
   if (!chosen.length) return null;
-  const lines = chosen.map((rate) => `${rate.name} shipping is HK$${rate.amount}.`);
+  const lines = chosen.map((rate) => {
+    if (Number(rate.amount) === 0 && (rate.code === 'hk' || /hong kong/i.test(rate.name))) {
+      return 'Standard Hong Kong delivery is included in the posted product price (HK$0 at checkout).';
+    }
+    return `${rate.name} shipping is HK$${rate.amount}.`;
+  });
   return lines.join(' ');
 }
 
