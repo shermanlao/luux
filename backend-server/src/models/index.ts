@@ -13,6 +13,9 @@ import {
   ensureDefaultPages,
   ensurePaymentTestProduct,
   ensureShippingRates,
+  ensureShippingRateUpdates,
+  ensureProductCatalogMigrations,
+  ensureMarketingFinanceColumns,
   ensureSiteSettings,
   upsertHelpTips,
 } from '../seed/defaults';
@@ -40,6 +43,7 @@ import TrafficSource from './TrafficSource';
 import TrafficCountry from './TrafficCountry';
 import TrafficKind from './TrafficKind';
 import MarketingCampaign from './MarketingCampaign';
+import MarketingSpend from './MarketingSpend';
 import MailboxMessage from './MailboxMessage';
 
 Product.hasMany(ProductImage, { foreignKey: 'product_id', as: 'images', onDelete: 'CASCADE' });
@@ -87,7 +91,10 @@ async function syncDatabase() {
     await ensureSiteSettings();
     await ensureCurrencies();
     await ensureShippingRates();
+    await ensureShippingRateUpdates();
+    await ensureMarketingFinanceColumns();
     await ensurePaymentTestProduct();
+    await ensureProductCatalogMigrations();
     await ensureDefaultPages();
     console.log('All models were synchronized successfully.');
   } catch (error) {
@@ -122,5 +129,6 @@ export {
   TrafficCountry,
   TrafficKind,
   MarketingCampaign,
+  MarketingSpend,
   MailboxMessage,
 };

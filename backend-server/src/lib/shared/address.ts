@@ -89,6 +89,15 @@ export function addressReady(address: PostalInput) {
   return Boolean(personName(address) && address.line1 && address.city && address.country && knownCountry(address.country));
 }
 
+/** Delivery fields needed before checkout can show a shipping rate. */
+export function deliveryAddressReady(
+  country: string,
+  address: Pick<PostalInput, 'first_name' | 'last_name' | 'line1' | 'city'>
+): boolean {
+  const code = String(country || '').trim().toUpperCase();
+  return Boolean(knownCountry(code) && personName(address) && address.line1.trim() && address.city.trim());
+}
+
 export function readPostal(body: Record<string, unknown>, prefix: 'invoice' | 'shipping'): PostalInput {
   const address: PostalInput = {
     first_name: clipText(body[`${prefix}_first_name`], 80),

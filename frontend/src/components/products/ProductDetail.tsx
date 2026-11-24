@@ -8,13 +8,13 @@ import { showSaveNotice } from '@/components/ui/SaveNotice';
 import { useCart } from '@/lib/cart';
 import type { Product } from '@/lib/types';
 import { useCurrency } from '@/lib/currency';
-import { matchVariant, shopOptions } from '@/lib/variants';
+import { defaultVariantSelection, matchVariant, shopOptions } from '@/lib/variants';
 
 export default function ProductDetail({ product }: { product: Product }) {
   const { add } = useCart();
   const { format } = useCurrency();
   const options = shopOptions(product);
-  const [selected, setSelected] = useState<string[]>(options.map((option) => option.values[0] || ''));
+  const [selected, setSelected] = useState<string[]>(() => defaultVariantSelection(product));
   const variant = useMemo(() => matchVariant(product, selected, options), [options, product, selected]);
   const [photoId, setPhotoId] = useState<number | null>(product.images[0]?.id || null);
 

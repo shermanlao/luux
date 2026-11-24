@@ -13,6 +13,7 @@ export type Variant = {
   stock: number;
   image_id: number | null;
   available: boolean;
+  cogs_hkd?: string;
 };
 
 export type Product = {

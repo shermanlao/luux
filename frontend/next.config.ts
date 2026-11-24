@@ -46,6 +46,19 @@ const nextConfig: NextConfig = {
       ],
     };
   },
+  async redirects() {
+    return [
+      { source: '/about', destination: '/pages/about-us', permanent: true },
+      { source: '/pages/about', destination: '/pages/about-us', permanent: true },
+      {
+        source:
+          '/products/italian-designer-table-lamp-led-crystal-eye-of-the-sky-free-shipping-egg-shaped-lamps-living-bedroom-decor-light-night-projector',
+        destination:
+          '/products/italian-designer-table-lamp-led-crystal-eye-of-the-sky-egg-shaped-lamps-living-bedroom-decor-light-night-projector',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

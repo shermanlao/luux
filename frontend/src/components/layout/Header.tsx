@@ -120,6 +120,9 @@ export default function Header({ collections, logo }: { collections: Collection[
               </div>
             ) : null}
           </div>
+          <HelpLink helpKey="nav.about" href="/pages/about-us" className="hover:text-brand">
+            ABOUT
+          </HelpLink>
           <HelpLink helpKey="nav.contact" href="/pages/contact" className="hover:text-brand">
             CONTACT US
           </HelpLink>
@@ -203,6 +206,9 @@ export default function Header({ collections, logo }: { collections: Collection[
                 ))}
               </div>
             </div>
+            <HelpLink helpKey="nav.about" href="/pages/about-us" className="hover:text-brand">
+              ABOUT
+            </HelpLink>
             <HelpLink helpKey="nav.contact" href="/pages/contact" className="hover:text-brand">
               CONTACT US
             </HelpLink>

@@ -192,6 +192,7 @@ export default function AdminProductEditorPage() {
         option3: variant.option3,
         stock: variant.stock,
         image_id: variant.image_id || null,
+        cogs_hkd: variant.cogs_hkd || '',
       })),
       collection_ids: collectionIds,
     };
@@ -615,10 +616,11 @@ export default function AdminProductEditorPage() {
         <div>
           <p className="admin-field-label">Variants</p>
           {variants.map((variant, index) => (
-            <div key={variant._key || variant.id || index} className="mb-2 grid gap-2 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.5fr)_minmax(0,0.8fr)_auto] md:items-center">
+            <div key={variant._key || variant.id || index} className="mb-2 grid gap-2 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.7fr)_minmax(0,0.6fr)_minmax(0,0.5fr)_minmax(0,0.5fr)_minmax(0,0.7fr)_auto] md:items-center">
               <input className="input-field" placeholder="Title" value={variant.title} onChange={(e) => setVariants((current) => current.map((row, i) => (i === index ? { ...row, title: e.target.value } : row)))} />
               <input className="input-field" placeholder="SKU" value={variant.sku} onChange={(e) => setVariants((current) => current.map((row, i) => (i === index ? { ...row, sku: e.target.value } : row)))} />
               <input className="input-field" placeholder="Price" value={variant.price} onChange={(e) => setVariants((current) => current.map((row, i) => (i === index ? { ...row, price: e.target.value } : row)))} />
+              <input className="input-field" placeholder="COGS" value={variant.cogs_hkd || ''} onChange={(e) => setVariants((current) => current.map((row, i) => (i === index ? { ...row, cogs_hkd: e.target.value } : row)))} />
               <input className="input-field" placeholder="Stock" type="number" value={variant.stock} onChange={(e) => setVariants((current) => current.map((row, i) => (i === index ? { ...row, stock: Number(e.target.value) } : row)))} />
               <input className="input-field" placeholder="Option 1" value={variant.option1 || ''} onChange={(e) => setVariants((current) => current.map((row, i) => (i === index ? { ...row, option1: e.target.value } : row)))} />
               <Button

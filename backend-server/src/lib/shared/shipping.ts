@@ -1,8 +1,10 @@
+import { isRemoteHongKongDelivery, type HongKongAddressFields } from './hkRemote';
+
 export function shippingMatchesCountry(countries: string, country: string): boolean {
   const raw = String(countries || '*').trim();
-  if (!raw || raw === '*') return true;
   const code = String(country || '').trim().toUpperCase();
   if (!code) return false;
+  if (!raw || raw === '*') return code !== 'HK';
   return raw
     .split(/[,\s]+/)
     .map((item) => item.trim().toUpperCase())
@@ -24,4 +26,20 @@ export function normalizeShippingAmount(value: unknown): string | null {
   const amount = Number(text);
   if (!Number.isFinite(amount) || amount < 0 || amount > 1000000) return null;
   return amount.toFixed(2);
+}
+
+export type ShippingRateChoice = { code: string; countries: string };
+
+export function shippingRateEligible(
+  rate: ShippingRateChoice,
+  country: string,
+  address: HongKongAddressFields = {}
+): boolean {
+  if (!shippingMatchesCountry(rate.countries, country)) return false;
+  const code = String(country || '').trim().toUpperCase();
+  if (code !== 'HK') return rate.code !== 'hk' && rate.code !== 'hk-remote';
+  const remote = isRemoteHongKongDelivery(address);
+  if (rate.code === 'hk') return !remote;
+  if (rate.code === 'hk-remote') return remote;
+  return false;
 }

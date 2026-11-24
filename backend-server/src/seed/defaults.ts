@@ -147,6 +147,8 @@ const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'admin.marketing.save', title: 'Save draft', body: 'Keep this caption, image, link, and channels.' },
   { helpKey: 'admin.marketing.confirm', title: 'Confirm and post', body: 'Publish this draft to the selected channels.' },
   { helpKey: 'admin.marketing.export', title: 'Export JSON', body: 'Download this campaign document for another app.' },
+  { helpKey: 'admin.marketing.spend_add', title: 'Add spend', body: 'Save a marketing or content spend row in HKD for the ROI report.' },
+  { helpKey: 'admin.marketing.spend_delete', title: 'Delete spend', body: 'Remove this spend row from the ROI report.' },
   { helpKey: 'admin.shipping.add', title: 'Add option', body: 'Add a shipping option. Set the name, amount, and countries, then save it.' },
   { helpKey: 'admin.shipping.delete', title: 'Delete option', body: 'Remove this shipping option from checkout.' },
   { helpKey: 'admin.shipping.countries', title: 'Countries', body: 'Use * for every country, or country codes such as HK.' },
@@ -204,7 +206,7 @@ const ENGLISH_COPY = {
   story_body: 'We believe in creating luminous atmospheres through thoughtfully designed lighting solutions.',
   shop_heading: 'Our shop',
   shop_body:
-    'With a keen eye for contemporary design, our store specializes in illuminating living spaces through modern wall lamps. We embrace innovative craftsmanship that marries artistry with function.',
+    'With a keen eye for contemporary design, our store offers pendant, wall, table, floor, and ceiling lamps for living spaces. We embrace innovative craftsmanship that marries artistry with function.',
   sanctuary_heading:
     'Transform your home into a sanctuary of light and shadow. Experience the subtle interplay of form and function.',
   newsletter_heading: 'Join our community',
@@ -536,6 +538,10 @@ function applyEnglishCopy(site: SiteSetting): boolean {
     site.seo_description = 'Modern lighting for living spaces. Pendant, wall, table, floor, and ceiling lamps.';
     changed = true;
   }
+  if (site.shop_body.includes('modern wall lamps') && site.shop_body.includes('specializes')) {
+    site.shop_body = ENGLISH_COPY.shop_body;
+    changed = true;
+  }
   return changed;
 }
 
@@ -676,14 +682,76 @@ export async function ensurePaymentTestProduct(): Promise<void> {
   await variant.save();
 }
 
+const HK_SHIPPING_NAME = 'Hong Kong delivery (included in price) / 香港送貨（已包喺售價內）';
+const HK_REMOTE_SHIPPING_NAME = 'Hong Kong remote area (quoted separately) / 香港偏遠送貨（另行報價）';
+const WORLD_SHIPPING_NAME = 'Overseas delivery from HK$280 / 海外送貨由 HK$280 起';
+
 export async function ensureShippingRates(): Promise<void> {
   const count = await ShippingRate.count();
   if (count > 0) return;
   await ShippingRate.bulkCreate([
-    { name: 'Hong Kong', code: 'hk', amount: '80.00', countries: 'HK', sort_order: 1 },
-    { name: 'Worldwide', code: 'world', amount: '280.00', countries: '*', sort_order: 2 },
+    { name: HK_SHIPPING_NAME, code: 'hk', amount: '0.00', countries: 'HK', sort_order: 1 },
+    { name: HK_REMOTE_SHIPPING_NAME, code: 'hk-remote', amount: '0.00', countries: 'HK', sort_order: 2 },
+    { name: WORLD_SHIPPING_NAME, code: 'world', amount: '280.00', countries: '*', sort_order: 3 },
   ]);
 }
+
+export async function ensureShippingRateUpdates(): Promise<void> {
+  const hk = await ShippingRate.findOne({ where: { code: 'hk' } });
+  if (hk) {
+    hk.name = HK_SHIPPING_NAME;
+    hk.amount = '0.00';
+    hk.countries = 'HK';
+    await hk.save();
+  }
+  let remote = await ShippingRate.findOne({ where: { code: 'hk-remote' } });
+  if (!remote) {
+    await ShippingRate.create({
+      name: HK_REMOTE_SHIPPING_NAME,
+      code: 'hk-remote',
+      amount: '0.00',
+      countries: 'HK',
+      sort_order: 2,
+    });
+  } else {
+    remote.name = HK_REMOTE_SHIPPING_NAME;
+    remote.amount = '0.00';
+    remote.countries = 'HK';
+    if (remote.sort_order < 2) remote.sort_order = 2;
+    await remote.save();
+  }
+  const world = await ShippingRate.findOne({ where: { code: 'world' } });
+  if (world) {
+    world.name = WORLD_SHIPPING_NAME;
+    world.countries = '*';
+    if (world.sort_order < 3) world.sort_order = 3;
+    await world.save();
+  }
+}
+
+const SHIPPING_POLICY_HTML = `<h2>Hong Kong — standard areas</h2>
+<p>Standard delivery within Hong Kong to non-remote addresses is included in the posted product price (HK$0 shipping at checkout). 香港標準地區送貨已包喺標示售價內（結帳顯示 HK$0 運費）。</p>
+<p>Standard areas are Hong Kong Island, Kowloon, and the New Territories, except the remote locations listed below.</p>
+<h2>Hong Kong — remote areas</h2>
+<p>Remote Hong Kong addresses are not included in the product price. Checkout will not apply included shipping; delivery is quoted or charged separately after we review your address. 香港偏遠地址唔包喺售價內，運費會另行報價或收取。</p>
+<p>Examples include outlying islands and areas such as Tung Chung, Discovery Bay, Chek Lap Kok, Lantau, and Ma Wan. This list is not exhaustive — we may quote other remote locations separately.</p>
+<p>Stair carries, redelivery, and installation are also quoted separately where they apply. 樓梯搬運、重新派送及安裝可能另外報價。</p>
+<h2>Overseas delivery</h2>
+<p>Checkout shows a starting overseas shipping rate of HK$280. Larger, heavier, or fragile pieces are quoted after you place the order rather than at checkout. 海外訂單按結帳顯示 HK$280 起；超大、超重或易碎商品會喺落單後另行報價。</p>
+<p>Customs and import charges are not included where they apply. 海關及入口稅（如適用）唔包括。</p>
+<p>Questions: <a href="mailto:hello@luuxmart.com">hello@luuxmart.com</a> or +852 6898 8613.</p>`;
+
+const TERMS_PRICES_EXCLUDE =
+  'Unless otherwise expressly stated, posted prices do not include taxes, shipping, handling, customs or import charges.';
+const TERMS_PRICES_INCLUDE_V1 =
+  'Unless otherwise expressly stated, posted prices are in Hong Kong dollars. Standard delivery within Hong Kong is included in the posted product price. Delivery to outlying islands, remote areas, stair carries, redelivery, and installation is not included and may be quoted separately. Overseas shipping, customs, and import charges are not included in the posted price; overseas delivery is quoted from HK$280 as a starting rate at checkout, and oversized or fragile pieces may be quoted after the order. Taxes apply where required by law.';
+const TERMS_PRICES_INCLUDE =
+  'Unless otherwise expressly stated, posted prices are in Hong Kong dollars. Standard delivery within Hong Kong to non-remote addresses is included in the posted product price. Remote Hong Kong areas (including outlying islands and locations such as Tung Chung, Discovery Bay, Chek Lap Kok, Lantau, and Ma Wan) are not included; delivery there is quoted or charged separately. Stair carries, redelivery, and installation may also be quoted separately. Overseas shipping, customs, and import charges are not included in the posted price; overseas delivery is quoted from HK$280 as a starting rate at checkout, and oversized or fragile pieces may be quoted after the order. Taxes apply where required by law.';
+
+const TERMS_PAYMENT_INCLUDE_SHIPPING =
+  '(iv) you will pay charges incurred by you at the posted prices, including shipping and handling charges and all applicable taxes, if any.';
+const TERMS_PAYMENT_CHECKOUT =
+  '(iv) you will pay charges incurred by you at the posted prices, plus any overseas shipping, customs, duties, or taxes shown at checkout or quoted separately, if applicable.';
 
 const ABOUT_NOTE =
   '<p class="about-note" style="margin:0 0 1.5rem;padding:0.9rem 1.1rem;background:#f3f7f5;border-left:4px solid #7A9E8F;font-weight:600;">All products on this website are replicas, not original products.</p>';
@@ -728,7 +796,13 @@ export async function ensureDefaultPages(): Promise<void> {
       handle: 'terms-of-service',
       kind: 'policy' as const,
       body_html:
-        '<p>Orders are an offer to buy. A contract is formed when payment is captured. Prices are in Hong Kong dollars. Risk of loss passes on delivery to the carrier. Governing law is Hong Kong SAR.</p>',
+        '<p>Orders are an offer to buy. A contract is formed when payment is captured.</p><h3>Section 4 — Prices</h3><p>Prices are in Hong Kong dollars. Standard delivery within Hong Kong to non-remote addresses is included in the posted product price. Remote Hong Kong areas (including outlying islands and locations such as Tung Chung, Discovery Bay, Chek Lap Kok, Lantau, and Ma Wan) are not included; delivery there is quoted or charged separately. Overseas shipping is quoted from HK$280 as a starting rate at checkout; oversized or fragile pieces may be quoted after the order. Risk of loss passes on delivery to the carrier. Governing law is Hong Kong SAR.</p>',
+    },
+    {
+      title: 'Shipping policy',
+      handle: 'shipping-policy',
+      kind: 'policy' as const,
+      body_html: SHIPPING_POLICY_HTML,
     },
     {
       title: 'Cookie policy',
@@ -757,6 +831,95 @@ export async function ensureDefaultPages(): Promise<void> {
   } else if (about && !about.body_html.includes('class="about-note"')) {
     about.body_html = `${ABOUT_NOTE}\n${about.body_html}`;
     await about.save();
+  }
+
+  const shippingPolicy = await Page.findOne({ where: { handle: 'shipping-policy' } });
+  if (!shippingPolicy) {
+    await Page.create({
+      title: 'Shipping policy',
+      handle: 'shipping-policy',
+      kind: 'policy',
+      body_html: SHIPPING_POLICY_HTML,
+    });
+  } else if (!shippingPolicy.body_html.includes('Tung Chung')) {
+    shippingPolicy.body_html = SHIPPING_POLICY_HTML;
+    await shippingPolicy.save();
+  }
+
+  const terms = await Page.findOne({ where: { handle: 'terms-of-service' } });
+  if (terms) {
+    let next = terms.body_html;
+    if (next.includes(TERMS_PRICES_EXCLUDE)) next = next.replace(TERMS_PRICES_EXCLUDE, TERMS_PRICES_INCLUDE);
+    if (next.includes(TERMS_PRICES_INCLUDE_V1)) next = next.replace(TERMS_PRICES_INCLUDE_V1, TERMS_PRICES_INCLUDE);
+    if (next.includes('Standard delivery within Hong Kong is included in the posted product price') && !next.includes('non-remote')) {
+      next = next.replace(
+        'Standard delivery within Hong Kong is included in the posted product price',
+        'Standard delivery within Hong Kong to non-remote addresses is included in the posted product price. Remote Hong Kong areas (including outlying islands and locations such as Tung Chung, Discovery Bay, Chek Lap Kok, Lantau, and Ma Wan) are not included; delivery there is quoted or charged separately'
+      );
+    }
+    if (next.includes(TERMS_PAYMENT_INCLUDE_SHIPPING)) next = next.replace(TERMS_PAYMENT_INCLUDE_SHIPPING, TERMS_PAYMENT_CHECKOUT);
+    if (next !== terms.body_html) {
+      terms.body_html = next;
+      await terms.save();
+    }
+  }
+
+  const contact = await Page.findOne({ where: { handle: 'contact' } });
+  if (contact && contact.body_html.includes('Welcome to LUUX') && contact.body_html.includes('replica')) {
+    contact.body_html = '<p>Email hello@luuxmart.com or call +852 6898 8613. Use the form on this page to send a message.</p>';
+    await contact.save();
+  }
+  if (about) {
+    let body = about.body_html;
+    if (body.includes('Providing authentic, high-quality lighting products')) {
+      body = body.replace(
+        'Providing authentic, high-quality lighting products',
+        'Offering carefully selected replica lighting designs'
+      );
+    }
+    if (body.includes('authentic, high-quality')) {
+      body = body.replace(/authentic, high-quality/gi, 'replica');
+    }
+    if (/secure and reliable shipping/i.test(body)) {
+      body = body.replace(
+        /Ensuring secure and reliable shipping[^.<]*/gi,
+        'Delivery follows our shipping policy: standard Hong Kong delivery is included in the posted price where applicable; remote addresses are quoted separately'
+      );
+    }
+    if (body !== about.body_html) {
+      about.body_html = body;
+      await about.save();
+    }
+  }
+}
+
+const SHOOTING_STAR_OLD_HANDLE =
+  'italian-designer-table-lamp-led-crystal-eye-of-the-sky-free-shipping-egg-shaped-lamps-living-bedroom-decor-light-night-projector';
+const SHOOTING_STAR_NEW_HANDLE =
+  'italian-designer-table-lamp-led-crystal-eye-of-the-sky-egg-shaped-lamps-living-bedroom-decor-light-night-projector';
+
+export async function ensureProductCatalogMigrations(): Promise<void> {
+  const shooting = await Product.findOne({ where: { handle: SHOOTING_STAR_OLD_HANDLE } });
+  if (shooting) {
+    shooting.handle = SHOOTING_STAR_NEW_HANDLE;
+    await shooting.save();
+  }
+  const spaceship = await Product.findOne({ where: { title: { [Op.like]: '%Tension WIre%' } } });
+  if (spaceship) {
+    spaceship.title = spaceship.title.replace('Tension WIre', 'Tension Wire');
+    await spaceship.save();
+  }
+}
+
+export async function ensureMarketingFinanceColumns(): Promise<void> {
+  const queryInterface = sequelize.getQueryInterface();
+  const variants = await queryInterface.describeTable('variants').catch(() => null);
+  if (variants && !variants.cogs_hkd) {
+    await queryInterface.addColumn('variants', 'cogs_hkd', { type: DataTypes.STRING, allowNull: false, defaultValue: '' });
+  }
+  const orders = await queryInterface.describeTable('orders').catch(() => null);
+  if (orders && !orders.actual_shipping_cost) {
+    await queryInterface.addColumn('orders', 'actual_shipping_cost', { type: DataTypes.STRING, allowNull: false, defaultValue: '' });
   }
 }
 

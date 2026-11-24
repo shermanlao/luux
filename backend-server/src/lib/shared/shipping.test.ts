@@ -7,6 +7,7 @@ describe('shipping countries', () => {
     assert.equal(shippingMatchesCountry('HK', 'hk'), true);
     assert.equal(shippingMatchesCountry('HK, MO', 'MO'), true);
     assert.equal(shippingMatchesCountry('*', 'US'), true);
+    assert.equal(shippingMatchesCountry('*', 'HK'), false);
     assert.equal(shippingMatchesCountry('HK', 'US'), false);
   });
 
