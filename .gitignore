@@ -16,6 +16,7 @@ build/
 # local SQLite
 *.sqlite
 *.sqlite-journal
+backend-server/test-fixtures/
 *.db
 
 # imported catalog photos (npm run import:shopify)

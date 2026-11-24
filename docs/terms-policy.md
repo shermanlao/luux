@@ -1,0 +1,16 @@
+# Terms policy migration
+
+The storefront Terms of service page (`/policies/terms-of-service`) reads `pages.body_html` for handle `terms-of-service`.
+
+## Boot migration
+
+`ensureDefaultPages` in `backend-server/src/seed/defaults.ts` runs on every API boot after the database syncs. For terms it calls `migrateTermsPolicyHtml` in `backend-server/src/lib/shared/termsPolicy.ts`, which:
+
+1. **Collapses duplicates** — if the body contains more than one `OVERVIEW Welcome to LUUX` marker (repeated full Shopify terms pastes), only the first block is kept.
+2. **Updates Section 4** — replaces the old “posted prices do not include taxes, shipping…” sentence and earlier HK-shipping wording with the current HKD / standard HK included / remote quoted / overseas HK$280 text, using replace-all so no stale copy remains.
+
+The migration is idempotent: a single correct body is unchanged on later boots.
+
+## Staff edits
+
+Staff can still edit terms in **Admin → Pages**. Avoid pasting the full Shopify terms HTML more than once; duplicate pastes are removed on the next deploy, keeping only the first block.
