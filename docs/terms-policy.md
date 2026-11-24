@@ -6,7 +6,7 @@ The storefront Terms of service page (`/policies/terms-of-service`) reads `pages
 
 `ensureDefaultPages` in `backend-server/src/seed/defaults.ts` runs on every API boot after the database syncs. For terms it calls `migrateTermsPolicyHtml` in `backend-server/src/lib/shared/termsPolicy.ts`, which:
 
-1. **Collapses duplicates** — if the body contains more than one `OVERVIEW Welcome to LUUX` marker (repeated full Shopify terms pastes), only the first block is kept.
+1. **Collapses duplicates** — finds repeated overview headers with the regex `OVERVIEW(?:\s|<[^>]+>)*Welcome to LUUX` (Shopify often wraps `OVERVIEW` in `<strong>` / `<br>` tags, so a plain-text substring match is not enough). Keeps everything before the **second** match (including the opening `<div class="rte">` wrapper), then closes any unclosed tags (`</strong>`, `</p>`, `</div>`, etc.).
 2. **Updates Section 4** — replaces the old “posted prices do not include taxes, shipping…” sentence and earlier HK-shipping wording with the current HKD / standard HK included / remote quoted / overseas HK$280 text, using replace-all so no stale copy remains.
 
 The migration is idempotent: a single correct body is unchanged on later boots.

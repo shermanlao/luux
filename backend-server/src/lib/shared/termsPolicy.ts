@@ -1,4 +1,4 @@
-export const TERMS_OVERVIEW_MARKER = 'OVERVIEW Welcome to LUUX';
+export const TERMS_OVERVIEW_DUPLICATE_PATTERN = /OVERVIEW(?:\s|<[^>]+>)*Welcome to LUUX/gi;
 
 export const TERMS_PRICES_EXCLUDE =
   'Unless otherwise expressly stated, posted prices do not include taxes, shipping, handling, customs or import charges.';
@@ -16,20 +16,75 @@ const HK_INCLUDED_V0 = 'Standard delivery within Hong Kong is included in the po
 const HK_INCLUDED_V1 =
   'Standard delivery within Hong Kong to non-remote addresses is included in the posted product price. Remote Hong Kong areas (including outlying islands and locations such as Tung Chung, Discovery Bay, Chek Lap Kok, Lantau, and Ma Wan) are not included; delivery there is quoted or charged separately';
 
-function replaceAll(haystack: string, needle: string, replacement: string): string {
-  if (!needle || !haystack.includes(needle)) return haystack;
-  return haystack.split(needle).join(replacement);
+const VOID_HTML_TAGS = new Set([
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
+]);
+
+const TAG_TOKEN = /<\s*(\/?)\s*([a-zA-Z][\w:-]*)([^>]*?)(\/?)\s*>/g;
+
+function findDuplicateOverviewStarts(html: string): number[] {
+  const pattern = new RegExp(TERMS_OVERVIEW_DUPLICATE_PATTERN.source, TERMS_OVERVIEW_DUPLICATE_PATTERN.flags);
+  const starts: number[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html)) !== null) {
+    starts.push(match.index);
+    if (match.index === pattern.lastIndex) pattern.lastIndex += 1;
+  }
+  return starts;
+}
+
+function closeUnclosedHtmlTags(html: string): string {
+  const stack: string[] = [];
+  let token: RegExpExecArray | null;
+  const scanner = new RegExp(TAG_TOKEN.source, TAG_TOKEN.flags);
+  while ((token = scanner.exec(html)) !== null) {
+    const isClose = token[1] === '/';
+    const name = token[2].toLowerCase();
+    const selfClose = token[4] === '/' || VOID_HTML_TAGS.has(name);
+    if (selfClose) continue;
+    if (isClose) {
+      if (stack.length > 0 && stack[stack.length - 1] === name) {
+        stack.pop();
+      } else if (stack.includes(name)) {
+        while (stack.length > 0 && stack[stack.length - 1] !== name) stack.pop();
+        if (stack.length > 0) stack.pop();
+      }
+    } else {
+      stack.push(name);
+    }
+  }
+  if (stack.length === 0) return '';
+  return stack
+    .reverse()
+    .map((tag) => `</${tag}>`)
+    .join('');
 }
 
 /** Keep the first Shopify-style Terms block when the CMS body was pasted or merged multiple times. */
 export function collapseDuplicateTermsBody(html: string): string {
-  const trimmed = html.trimStart();
-  const first = trimmed.indexOf(TERMS_OVERVIEW_MARKER);
-  if (first < 0) return html;
-  const rest = trimmed.slice(first + TERMS_OVERVIEW_MARKER.length);
-  const second = rest.indexOf(TERMS_OVERVIEW_MARKER);
-  if (second < 0) return trimmed.slice(first);
-  return trimmed.slice(first, first + TERMS_OVERVIEW_MARKER.length + second).trimEnd();
+  const starts = findDuplicateOverviewStarts(html);
+  if (starts.length < 2) return html;
+  const cutAt = starts[1];
+  const truncated = html.slice(0, cutAt);
+  return `${truncated}${closeUnclosedHtmlTags(truncated)}`;
+}
+
+function replaceAll(haystack: string, needle: string, replacement: string): string {
+  if (!needle || !haystack.includes(needle)) return haystack;
+  return haystack.split(needle).join(replacement);
 }
 
 export function migrateTermsPolicyHtml(html: string): string {
@@ -41,4 +96,8 @@ export function migrateTermsPolicyHtml(html: string): string {
   }
   next = replaceAll(next, TERMS_PAYMENT_INCLUDE_SHIPPING, TERMS_PAYMENT_CHECKOUT);
   return next;
+}
+
+export function countDuplicateOverviewStarts(html: string): number {
+  return findDuplicateOverviewStarts(html).length;
 }
