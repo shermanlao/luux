@@ -100,7 +100,7 @@ export default function MarketingRoiPanel() {
         <TextInput label="To" type="date" value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} />
       </div>
       {roi ? (
-        <motionlessStats roi={roi} />
+        <RoiStats roi={roi} />
       ) : null}
       <form onSubmit={addSpend} className="grid gap-3 md:grid-cols-2">
         <TextInput label="Date" type="date" required value={form.spent_on} onChange={(e) => setForm({ ...form, spent_on: e.target.value })} />
@@ -154,7 +154,7 @@ export default function MarketingRoiPanel() {
   );
 }
 
-function motionlessStats({ roi }: { roi: RoiReport }) {
+function RoiStats({ roi }: { roi: RoiReport }) {
   const roiLabel =
     roi.revenue_per_spend == null
       ? 'Not calculable (no spend in range)'

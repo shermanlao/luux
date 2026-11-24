@@ -7,7 +7,7 @@ import AlertBanner from '@/components/ui/AlertBanner';
 import Button from '@/components/ui/Button';
 import { formatHkd } from '@shared/slugify';
 import { invoiceLines, OrderAddressText, shippingLines, shipsToInvoice } from '@/components/admin/OrderAddress';
-import TrackingForm, { trackingFromOrder, type TrackingDraft } from '@/components/admin/TrackingForm';
+import TrackingForm, { EMPTY_TRACKING, trackingFromOrder, type TrackingDraft } from '@/components/admin/TrackingForm';
 import type { Order } from '@/lib/types';
 
 type OrderItem = Order['items'][number];
@@ -78,7 +78,7 @@ export default function OrderDetailsDialog({
   const titleId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  const [tracking, setTracking] = useState<TrackingDraft>({ tracking_carrier: '', tracking_number: '', tracking_url: '' });
+  const [tracking, setTracking] = useState<TrackingDraft>(EMPTY_TRACKING);
 
   useEffect(() => {
     if (!order) return;

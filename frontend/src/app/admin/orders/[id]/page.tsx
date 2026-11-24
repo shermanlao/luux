@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
-import TrackingForm, { trackingFromOrder, type TrackingDraft } from '@/components/admin/TrackingForm';
+import TrackingForm, { EMPTY_TRACKING, trackingFromOrder, type TrackingDraft } from '@/components/admin/TrackingForm';
 import AdminTable from '@/components/ui/AdminTable';
 import AlertBanner from '@/components/ui/AlertBanner';
 import Button from '@/components/ui/Button';
@@ -31,7 +31,7 @@ export default function AdminOrderPage() {
   const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [tracking, setTracking] = useState<TrackingDraft>({ tracking_carrier: '', tracking_number: '', tracking_url: '' });
+  const [tracking, setTracking] = useState<TrackingDraft>(EMPTY_TRACKING);
 
   useEffect(() => {
     let cancelled = false;
