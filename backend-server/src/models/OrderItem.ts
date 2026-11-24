@@ -1,5 +1,6 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../database';
+import type Variant from './Variant';
 
 class OrderItem extends Model {
   declare id: number;
@@ -11,6 +12,7 @@ class OrderItem extends Model {
   declare sku: string;
   declare quantity: number;
   declare unit_price: string;
+  declare variant?: Variant;
 }
 
 OrderItem.init(

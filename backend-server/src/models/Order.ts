@@ -1,5 +1,6 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../database';
+import type OrderItem from './OrderItem';
 
 export type OrderStatus = 'pending' | 'paid' | 'fulfilled' | 'cancelled';
 
@@ -52,6 +53,7 @@ class Order extends Model {
   declare staff_notice: string;
   declare actual_shipping_cost: string;
   declare createdAt: Date;
+  declare items?: OrderItem[];
 }
 
 Order.init(
