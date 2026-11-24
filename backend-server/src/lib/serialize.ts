@@ -88,7 +88,7 @@ export function serializeProduct(
     options: [...(product.options || [])]
       .sort((a, b) => a.position - b.position)
       .map(serializeOption),
-    variants: variants.map(serializeVariant),
+    variants: variants.map((variant) => serializeVariant(variant, extra)),
     collections: (product.collections || []).map((row) => ({
       id: row.id,
       title: row.title,
@@ -207,7 +207,7 @@ type OrderLine = OrderItem & {
   variant?: Variant | null;
 };
 
-export function serializeOrder(order: Order & { items?: OrderLine[]; updatedAt?: Date }) {
+export function serializeOrder(order: Omit<Order, 'items'> & { items?: OrderLine[]; updatedAt?: Date }) {
   return {
     id: order.id,
     number: order.number,
@@ -261,7 +261,7 @@ export function serializeOrder(order: Order & { items?: OrderLine[]; updatedAt?:
   };
 }
 
-export function serializeCustomerOrder(order: Order & { items?: OrderLine[]; updatedAt?: Date }) {
+export function serializeCustomerOrder(order: Omit<Order, 'items'> & { items?: OrderLine[]; updatedAt?: Date }) {
   const row = serializeOrder(order);
   return {
     id: row.id,
