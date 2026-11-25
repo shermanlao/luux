@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import type { Product, SiteSettings } from './types';
 import { siteOrigin } from './api';
 import { listingVariant } from './variants';
+import { homePageDescription } from '@shared/home-seo';
+import { jsonLdSku } from '@shared/jsonld-sku';
 
 export const SHOP_FACTS_BLURB =
   'LUUX is a Hong Kong lighting retailer. Products on this site are replicas, not originals. Posted prices are in HKD. Standard Hong Kong delivery to non-remote addresses is included in the product price. Remote Hong Kong areas are quoted separately. Overseas shipping is quoted from HK$280. Contact hello@luuxmart.com or +852 6898 8613.';
@@ -29,12 +31,20 @@ const COLLECTION_DESCRIPTIONS: Record<string, string> = {
 
 export function absoluteUrl(path: string): string {
   const origin = siteOrigin();
-  if (!path) return origin;
+  if (!path) return `${origin}/`;
   return path.startsWith('http') ? path : `${origin}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+/** Canonical URL; homepage must keep a trailing slash to match sitemap and Organization JSON-LD. */
+export function pageCanonicalUrl(path: string): string {
+  if (path === '/' || path === '') {
+    return `${siteOrigin()}/`;
+  }
+  return absoluteUrl(path);
+}
+
 export function canonicalPath(path: string): Metadata['alternates'] {
-  return { canonical: absoluteUrl(path) };
+  return { canonical: pageCanonicalUrl(path) };
 }
 
 export function pageDescription(handle: string, fallback: string): string {
@@ -80,7 +90,7 @@ export function buildPageMetadata({
   image?: string;
   index?: boolean;
 }): Metadata {
-  const url = absoluteUrl(path);
+  const url = pageCanonicalUrl(path);
   const images = image ? [{ url: absoluteUrl(image) }] : undefined;
   return {
     title,
@@ -109,7 +119,7 @@ export function organizationJsonLd(site: SiteSettings) {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: site.company_name || 'LUUX',
-    url: absoluteUrl('/'),
+    url: pageCanonicalUrl('/'),
     email: site.contact_email,
     telephone: site.contact_phone,
     address: {
@@ -130,7 +140,7 @@ export function productJsonLd(product: Product) {
     '@type': 'Product',
     name: product.title,
     description: productListingDescription(product),
-    sku: variant?.sku || undefined,
+    sku: jsonLdSku(variant?.sku),
     image: image ? absoluteUrl(image) : undefined,
     brand: { '@type': 'Brand', name: 'LUUX' },
     offers: {
@@ -142,6 +152,8 @@ export function productJsonLd(product: Product) {
     },
   };
 }
+
+export { homePageDescription };
 
 export function breadcrumbJsonLd(items: Array<{ name: string; path: string }>) {
   return {

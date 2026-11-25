@@ -6,6 +6,7 @@ import {
   collapseDuplicateTermsBody,
   countDuplicateOverviewStarts,
   migrateTermsPolicyHtml,
+  renumberTermsSectionsAfterShopifyRemoval,
 } from './termsPolicy';
 
 const RTE_OPEN = '<div class="rte">\n        <p><strong><strong>OVERVIEW</strong> <br>Welcome to LUUX!';
@@ -30,6 +31,17 @@ describe('collapseDuplicateTermsBody', () => {
     const collapsed = collapseDuplicateTermsBody(plain);
     assert.equal(countDuplicateOverviewStarts(collapsed), 1);
     assert.doesNotMatch(collapsed, / B\./);
+  });
+});
+
+describe('renumberTermsSectionsAfterShopifyRemoval', () => {
+  it('shifts SECTION 10–24 down to 9–23', () => {
+    const html = '<p><strong>SECTION 10 - PRIVACY POLICY</strong> … <strong>SECTION 24 - CONTACT</strong></p>';
+    const next = renumberTermsSectionsAfterShopifyRemoval(html);
+    assert.match(next, /SECTION 9 - PRIVACY POLICY/);
+    assert.match(next, /SECTION 23 - CONTACT/);
+    assert.doesNotMatch(next, /SECTION 24 -/);
+    assert.doesNotMatch(next, /SECTION 10 - PRIVACY/);
   });
 });
 

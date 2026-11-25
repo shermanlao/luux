@@ -67,6 +67,12 @@ const nextConfig: NextConfig = {
           '/products/led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room',
         permanent: true,
       },
+      {
+        source: '/products/bowling-pin-pendant-lamp',
+        destination:
+          '/products/led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room',
+        permanent: true,
+      },
     ];
   },
 };

@@ -13,6 +13,7 @@ import SiteSetting from '../models/SiteSetting';
 import Variant from '../models/Variant';
 import { migratePrivacyPolicyHtml, migrateRefundPolicyHtml, replaceLegacyContactEmail } from '../lib/shared/policyContentMigration';
 import { migrateTermsPolicyHtml } from '../lib/shared/termsPolicy';
+import { HOME_DESCRIPTION_FALLBACK, isGenericHomeSeoDescription } from '../lib/shared/home-seo';
 
 const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
   { helpKey: 'nav.menu', title: 'Menu', body: 'Open the site menu.' },
@@ -568,6 +569,10 @@ function applyEnglishCopy(site: SiteSetting): boolean {
   }
   if (site.seo_description.startsWith('現代')) {
     site.seo_description = 'Modern lighting for living spaces. Pendant, wall, table, floor, and ceiling lamps.';
+    changed = true;
+  }
+  if (isGenericHomeSeoDescription(site.seo_description)) {
+    site.seo_description = HOME_DESCRIPTION_FALLBACK;
     changed = true;
   }
   if (site.shop_body.includes('modern wall lamps') && site.shop_body.includes('specializes')) {

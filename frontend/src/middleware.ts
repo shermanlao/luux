@@ -8,11 +8,23 @@ import {
   publicOriginFromEnv,
   wwwApexHostFromRequest,
 } from '@shared/www-to-apex';
+import { stripLocalePrefix } from '@shared/locale-prefix';
 
 const API_ORIGIN = process.env.API_ORIGIN || 'http://127.0.0.1:3333';
 
 function firstHeader(value: string | null): string {
   return (value || '').split(',')[0].trim();
+}
+
+function localePrefixRedirect(request: NextRequest): NextResponse | null {
+  const target = stripLocalePrefix(request.nextUrl.pathname);
+  if (!target) return null;
+  const envOrigin = publicOriginFromEnv();
+  if (envOrigin) {
+    const location = `${envOrigin.replace(/\/$/, '')}${target === '/' ? '/' : target}${request.nextUrl.search}`;
+    return NextResponse.redirect(location, 301);
+  }
+  return redirectSameOrigin(request, target, request.nextUrl.searchParams.toString() || undefined);
 }
 
 function wwwToApexRedirect(request: NextRequest): NextResponse | null {
@@ -93,6 +105,8 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const apex = wwwToApexRedirect(request);
   if (apex) return apex;
+  const locale = localePrefixRedirect(request);
+  if (locale) return locale;
   if (!pathname.startsWith('/admin')) {
     await countAutomatedVisit(request);
     return NextResponse.next();

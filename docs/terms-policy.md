@@ -9,6 +9,7 @@ The storefront Terms of service page (`/policies/terms-of-service`) reads `pages
 1. **Collapses duplicates** — finds repeated overview headers with the regex `OVERVIEW(?:\s|<[^>]+>)*Welcome to LUUX` (Shopify often wraps `OVERVIEW` in `<strong>` / `<br>` tags, so a plain-text substring match is not enough). Keeps everything before the **second** match (including the opening `<div class="rte">` wrapper), then closes any unclosed tags (`</strong>`, `</p>`, `</div>`, etc.).
 2. **Updates Section 4** — replaces the old “posted prices do not include taxes, shipping…” sentence and earlier HK-shipping wording with the current HKD / standard HK included / remote quoted / overseas HK$280 text, using replace-all so no stale copy remains.
 3. **Removes Shopify leftovers** — drops Section 9, “powered by Shopify” wording, hosted-by-Shopify privacy paragraphs, and other Shopify-only boilerplate while keeping placeholders such as `[INSERT TRADING NAME]` intact. Replaces legacy `info@4techhk.com` with `hello@luuxmart.com`.
+4. **Renumbers sections** — after Section 9 is removed, former SECTION 10–24 become SECTION 9–23 so numbering stays contiguous.
 
 Refund and privacy policies use sibling helpers documented in [Policy content migration](policy-content-migration.md).
 

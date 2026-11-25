@@ -1,6 +1,17 @@
+import type { Metadata } from 'next';
 import ProductCard from '@/components/products/ProductCard';
 import Button from '@/components/ui/Button';
 import { loadSearch } from '@/lib/api';
+import { buildPageMetadata } from '@/lib/seo';
+
+export function generateMetadata(): Metadata {
+  return buildPageMetadata({
+    path: '/search',
+    title: 'Search',
+    description: 'Search LUUX products.',
+    index: false,
+  });
+}
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q = '' } = await searchParams;

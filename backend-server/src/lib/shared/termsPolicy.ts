@@ -32,9 +32,20 @@ export function collapseDuplicateTermsBody(html: string): string {
   return `${truncated}${closeUnclosedHtmlTags(truncated)}`;
 }
 
+/** After Section 9 (Shopify) is removed, close the gap by shifting 10–24 down to 9–23. */
+export function renumberTermsSectionsAfterShopifyRemoval(html: string): string {
+  let next = html;
+  for (let section = 10; section <= 24; section += 1) {
+    const pattern = new RegExp(`(SECTION\\s+)${section}(\\s*-\\s*)`, 'gi');
+    next = next.replace(pattern, `$1${section - 1}$2`);
+  }
+  return next;
+}
+
 export function migrateTermsPolicyHtml(html: string): string {
   let next = collapseDuplicateTermsBody(html);
   next = removeShopifyFromTermsHtml(next);
+  next = renumberTermsSectionsAfterShopifyRemoval(next);
   next = replaceLegacyContactEmail(next);
   next = replaceAll(next, TERMS_PRICES_EXCLUDE, TERMS_PRICES_INCLUDE);
   next = replaceAll(next, TERMS_PRICES_INCLUDE_V1, TERMS_PRICES_INCLUDE);

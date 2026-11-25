@@ -97,6 +97,12 @@ async function syncDatabase() {
     await ensureProductCatalogMigrations();
     await ensureDefaultPages();
     console.log('All models were synchronized successfully.');
+    void (async () => {
+      const { buildSitemapPayload } = await import('../lib/sitemapPayload');
+      const { runIndexNowAfterBoot } = await import('../lib/shared/indexnow');
+      const payload = await buildSitemapPayload();
+      await runIndexNowAfterBoot(payload);
+    })();
   } catch (error) {
     console.error('Failed to synchronize models:', error);
   }
