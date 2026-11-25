@@ -4,7 +4,7 @@ import { siteOrigin } from './api';
 import { listingVariant } from './variants';
 
 export const SHOP_FACTS_BLURB =
-  'LUUX is a Hong Kong lighting retailer. Products on this site are replicas, not originals. Posted prices are in HKD. Standard Hong Kong delivery to non-remote addresses is included in the product price; remote Hong Kong areas and overseas shipping (from HK$280) are quoted separately. Contact hello@luuxmart.com or +852 6898 8613.';
+  'LUUX is a Hong Kong lighting retailer. Products on this site are replicas, not originals. Posted prices are in HKD. Standard Hong Kong delivery to non-remote addresses is included in the product price. Remote Hong Kong areas are quoted separately. Overseas shipping is quoted from HK$280. Contact hello@luuxmart.com or +852 6898 8613.';
 
 const PAGE_DESCRIPTIONS: Record<string, string> = {
   'about-us':
@@ -21,7 +21,7 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
 const COLLECTION_DESCRIPTIONS: Record<string, string> = {
   pendant: 'Pendant lamps and chandeliers for dining, kitchen, and living spaces.',
   wall: 'Wall lamps and sconces for corridors, bedrooms, and accent lighting.',
-  table: 'Table lamps for desks, bedside tables, and reading light.',
+  'table-lamp': 'Table lamps for desks, bedside tables, and reading light.',
   floor: 'Floor lamps and standing lights for living rooms and lounges.',
   ceiling: 'Ceiling lamps and flush mounts for ambient room lighting.',
   all: 'Every published LUUX lamp in one grid — pendant, wall, table, floor, and ceiling lighting.',

@@ -21,7 +21,7 @@ Implementation lives in:
 
 Refund dedupe finds a second `We have a 30-day return policy` and cuts before that paragraph’s opening `<p>`, then closes unclosed tags (same approach as terms overview dedupe).
 
-Tests use raw production HTML fixtures under `backend-server/test-fixtures/live-policy-html/` (2026-11-25 snapshots).
+Tests use raw production HTML fixtures under `backend-server/src/lib/shared/fixtures/live-policy-html/` (2026-11-25 snapshots).
 
 ## Staff edits
 

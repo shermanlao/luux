@@ -63,7 +63,8 @@ const nextConfig: NextConfig = {
       {
         source:
           '/products/led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room-bar-cafe-droplight-fxture',
-        destination: '/products/bowling-pin-pendant-lamp',
+        destination:
+          '/products/led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room',
         permanent: true,
       },
     ];

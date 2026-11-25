@@ -236,7 +236,7 @@ const HEADER_LOGO = '/images/luux-logo.jpg';
 
 const STALE_FEATURED_PRODUCT_HANDLE =
   'led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room-bar-cafe-droplight-fxture';
-const BOWLING_PIN_HANDLE = 'bowling-pin-pendant-lamp';
+const BOWLING_PIN_LIVE_HANDLE = 'led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room';
 
 function parseFeaturedHandles(raw: string): string[] {
   try {
@@ -582,7 +582,9 @@ async function ensureFeaturedHandles(site: SiteSetting): Promise<void> {
   if (!handles.length) return;
   const published = await Product.findAll({ where: { published: true }, attributes: ['handle'] });
   const valid = new Set(published.map((row) => row.handle));
-  let next = handles.map((handle) => (handle === STALE_FEATURED_PRODUCT_HANDLE ? BOWLING_PIN_HANDLE : handle));
+  let next = handles.map((handle) =>
+    handle === STALE_FEATURED_PRODUCT_HANDLE || handle === 'bowling-pin-pendant-lamp' ? BOWLING_PIN_LIVE_HANDLE : handle
+  );
   next = [...new Set(next)].filter((handle) => valid.has(handle));
   if (JSON.stringify(handles) === JSON.stringify(next)) return;
   site.featured_handles = JSON.stringify(next);
@@ -618,7 +620,7 @@ export async function ensureSiteSettings(): Promise<SiteSetting> {
       'oboe-pendant-lamp',
       'laputa-pendant-lamp',
       'conduit-pendant-lamp',
-      'bowling-pin-pendant-lamp',
+      BOWLING_PIN_LIVE_HANDLE,
     ]),
     story_heading: '',
     contact_email: 'hello@luuxmart.com',

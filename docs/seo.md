@@ -21,6 +21,6 @@ Helpers live in `frontend/src/lib/seo.ts`:
 
 ## Boot migrations
 
-`ensureSiteSettings` removes generic Threads/Pinterest homepages, fixes a bare Instagram root URL to `luuxlighting`, and replaces the stale Bowling Pin featured handle with `bowling-pin-pendant-lamp` when present.
+`ensureSiteSettings` removes generic Threads/Pinterest homepages, fixes a bare Instagram root URL to `luuxlighting`, and maps stale Bowling Pin featured handles (`…-droplight-fxture` or `bowling-pin-pendant-lamp`) to the live product handle `led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room`.
 
 Legal policy HTML migrations are documented in [Policy content migration](policy-content-migration.md).
