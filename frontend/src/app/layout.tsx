@@ -60,7 +60,10 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(siteOrigin()),
     title: { default: payload.site.seo_title || 'LUUX', template: `%s – ${payload.site.company_name}` },
     description: payload.site.seo_description,
-    icons: payload.site.logo_icon ? { icon: payload.site.logo_icon } : undefined,
+    icons: {
+      icon: payload.site.logo_icon || '/images/luux-mark.jpg',
+      shortcut: '/favicon.ico',
+    },
   };
 }
 

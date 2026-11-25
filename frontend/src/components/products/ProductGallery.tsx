@@ -41,7 +41,12 @@ export default function ProductGallery({
   return (
     <div className="min-w-0 max-w-full">
       <div className="relative aspect-square w-full max-w-full overflow-hidden rounded-md bg-gray-100">
-        <img key={current.id} src={current.src} alt={alt} className="h-full w-full object-contain" />
+        <img
+          key={current.id}
+          src={current.src}
+          alt={current.alt?.trim() || `${alt} photo ${index + 1}`}
+          className="h-full w-full object-contain"
+        />
         {images.length > 1 ? (
           <>
             <HelpButton
@@ -78,7 +83,11 @@ export default function ProductGallery({
                 aria-current={active ? 'true' : undefined}
                 onClick={() => onChange(row.id)}
               >
-                <img src={row.src} alt="" className="h-full w-full object-cover" />
+                <img
+                  src={row.src}
+                  alt={row.alt?.trim() || `${alt} thumbnail ${position + 1}`}
+                  className="h-full w-full object-cover"
+                />
               </HelpButton>
             );
           })}

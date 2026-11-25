@@ -11,6 +11,7 @@ import Product from '../models/Product';
 import ShippingRate from '../models/ShippingRate';
 import SiteSetting from '../models/SiteSetting';
 import Variant from '../models/Variant';
+import { migratePrivacyPolicyHtml, migrateRefundPolicyHtml, replaceLegacyContactEmail } from '../lib/shared/policyContentMigration';
 import { migrateTermsPolicyHtml } from '../lib/shared/termsPolicy';
 
 const HELP_TIPS: Array<{ helpKey: string; title: string; body: string }> = [
@@ -232,6 +233,36 @@ const PREVIOUS_ZH: Record<keyof typeof ENGLISH_COPY, string> = {
 };
 
 const HEADER_LOGO = '/images/luux-logo.jpg';
+
+const STALE_FEATURED_PRODUCT_HANDLE =
+  'led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room-bar-cafe-droplight-fxture';
+const BOWLING_PIN_LIVE_HANDLE = 'led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room';
+
+function parseFeaturedHandles(raw: string): string[] {
+  try {
+    const value = JSON.parse(raw || '[]');
+    return Array.isArray(value) ? value.map((item) => String(item)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function sanitizeSocialUrls(site: SiteSetting): boolean {
+  let changed = false;
+  if (/^https:\/\/(www\.)?threads\.net\/?$/i.test(site.threads_url || '')) {
+    site.threads_url = '';
+    changed = true;
+  }
+  if (/^https:\/\/(www\.)?pinterest\.com\/?$/i.test(site.pinterest_url || '')) {
+    site.pinterest_url = '';
+    changed = true;
+  }
+  if (/^https:\/\/(www\.)?instagram\.com\/?$/i.test(site.instagram_url || '')) {
+    site.instagram_url = 'https://www.instagram.com/luuxlighting/';
+    changed = true;
+  }
+  return changed;
+}
 
 const PREVIOUS_COOKIE_NOTICE =
   'We use a login cookie and keep your cart in this browser. We do not use advertising cookies. Allow or Reject is remembered for this network.';
@@ -546,6 +577,20 @@ function applyEnglishCopy(site: SiteSetting): boolean {
   return changed;
 }
 
+async function ensureFeaturedHandles(site: SiteSetting): Promise<void> {
+  const handles = parseFeaturedHandles(site.featured_handles);
+  if (!handles.length) return;
+  const published = await Product.findAll({ where: { published: true }, attributes: ['handle'] });
+  const valid = new Set(published.map((row) => row.handle));
+  let next = handles.map((handle) =>
+    handle === STALE_FEATURED_PRODUCT_HANDLE || handle === 'bowling-pin-pendant-lamp' ? BOWLING_PIN_LIVE_HANDLE : handle
+  );
+  next = [...new Set(next)].filter((handle) => valid.has(handle));
+  if (JSON.stringify(handles) === JSON.stringify(next)) return;
+  site.featured_handles = JSON.stringify(next);
+  await site.save();
+}
+
 export async function ensureSiteSettings(): Promise<SiteSetting> {
   await ensureHeaderLogoColumn();
   await ensureCookieNoticeColumn();
@@ -559,7 +604,9 @@ export async function ensureSiteSettings(): Promise<SiteSetting> {
       existing.cookie_notice = DEFAULT_COOKIE_NOTICE;
       changed = true;
     }
+    if (sanitizeSocialUrls(existing)) changed = true;
     if (changed) await existing.save();
+    await ensureFeaturedHandles(existing);
     return existing;
   }
   return SiteSetting.create({
@@ -573,16 +620,16 @@ export async function ensureSiteSettings(): Promise<SiteSetting> {
       'oboe-pendant-lamp',
       'laputa-pendant-lamp',
       'conduit-pendant-lamp',
-      'bowling-pin-pendant-lamp',
+      BOWLING_PIN_LIVE_HANDLE,
     ]),
     story_heading: '',
     contact_email: 'hello@luuxmart.com',
     contact_phone: '+852 6898 8613',
     contact_address: 'Hong Kong',
     facebook_url: 'https://www.facebook.com/',
-    instagram_url: 'https://www.instagram.com/',
-    threads_url: 'https://www.threads.net/',
-    pinterest_url: 'https://www.pinterest.com/',
+    instagram_url: 'https://www.instagram.com/luuxlighting/',
+    threads_url: '',
+    pinterest_url: '',
     seo_title: 'LUUX',
     seo_description: 'Modern lighting for living spaces. Pendant, wall, table, floor, and ceiling lamps.',
     cookie_notice: DEFAULT_COOKIE_NOTICE,
@@ -841,6 +888,35 @@ export async function ensureDefaultPages(): Promise<void> {
     if (next !== terms.body_html) {
       terms.body_html = next;
       await terms.save();
+    }
+  }
+
+  const refundPolicy = await Page.findOne({ where: { handle: 'refund-policy' } });
+  if (refundPolicy) {
+    const next = migrateRefundPolicyHtml(refundPolicy.body_html);
+    if (next !== refundPolicy.body_html) {
+      refundPolicy.body_html = next;
+      await refundPolicy.save();
+    }
+  }
+
+  const privacyPolicy = await Page.findOne({ where: { handle: 'privacy-policy' } });
+  if (privacyPolicy) {
+    const next = migratePrivacyPolicyHtml(privacyPolicy.body_html);
+    if (next !== privacyPolicy.body_html) {
+      privacyPolicy.body_html = next;
+      await privacyPolicy.save();
+    }
+  }
+
+  const policyHandles = ['about-us', 'contact', 'cookie-policy', 'shipping-policy'] as const;
+  for (const handle of policyHandles) {
+    const row = await Page.findOne({ where: { handle } });
+    if (!row) continue;
+    const next = replaceLegacyContactEmail(row.body_html);
+    if (next !== row.body_html) {
+      row.body_html = next;
+      await row.save();
     }
   }
 

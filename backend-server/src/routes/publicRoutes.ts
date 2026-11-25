@@ -505,6 +505,37 @@ router.post(
 );
 
 router.get(
+  '/sitemap',
+  asyncHandler(async (_req, res) => {
+    const [products, collections, pages] = await Promise.all([
+      Product.findAll({ where: { published: true }, attributes: ['handle'], order: [['id', 'ASC']] }),
+      Collection.findAll({
+        where: { published: true },
+        attributes: ['handle'],
+        order: [
+          ['sort_order', 'ASC'],
+          ['id', 'ASC'],
+        ],
+      }),
+      Page.findAll({ attributes: ['handle', 'kind'], order: [['id', 'ASC']] }),
+    ]);
+    res.json({
+      generatedAt: new Date().toISOString(),
+      products: products.map((row) => ({ path: `/products/${row.handle}` })),
+      collections: [
+        { path: '/collections' },
+        { path: '/collections/all' },
+        ...collections.map((row) => ({ path: `/collections/${row.handle}` })),
+      ],
+      pages: pages.map((row) => ({
+        path: row.kind === 'policy' ? `/policies/${row.handle}` : `/pages/${row.handle}`,
+      })),
+      static: [{ path: '/' }],
+    });
+  })
+);
+
+router.get(
   '/me',
   asyncHandler(async (req, res) => {
     const session = await readCustomerSession(req);

@@ -10,7 +10,7 @@ import type { Product } from '@/lib/types';
 import { useCurrency } from '@/lib/currency';
 import { defaultVariantSelection, matchVariant, shopOptions } from '@/lib/variants';
 
-export default function ProductDetail({ product }: { product: Product }) {
+export default function ProductDetail({ product, intro = '' }: { product: Product; intro?: string }) {
   const { add } = useCart();
   const { format } = useCurrency();
   const options = shopOptions(product);
@@ -66,6 +66,7 @@ export default function ProductDetail({ product }: { product: Product }) {
             {variant?.available ? 'Add to cart' : 'Sold out'}
           </Button>
         </div>
+        {intro ? <p className="mt-6 text-sm leading-relaxed text-gray-800">{intro}</p> : null}
         <div className="prose-luux mt-8 text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: product.body_html }} />
       </div>
     </div>

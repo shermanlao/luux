@@ -1,5 +1,13 @@
+import type { Metadata } from 'next';
 import { HelpLink } from '@/components/admin/HelpButton';
 import { loadCollections } from '@/lib/api';
+import { buildPageMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = buildPageMetadata({
+  path: '/collections',
+  title: 'Collections',
+  description: 'Browse LUUX lighting collections — pendant, wall, table, floor, and ceiling lamps.',
+});
 
 export default async function CollectionsIndexPage() {
   const collections = await loadCollections();

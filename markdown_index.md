@@ -2,6 +2,8 @@
 
 - [Admin](docs/admin.md) — staff login, products, collections, pages, shipping, orders, messages, email, and shop chat
 - [Terms policy migration](docs/terms-policy.md) — boot-time dedupe and Section 4 updates for `/policies/terms-of-service`
+- [Policy content migration](docs/policy-content-migration.md) — refund dedupe, email cleanup, and Shopify removal on legal pages
+- [SEO](docs/seo.md) — sitemap, canonical host, metadata, schema, and redirects
 - [Customer accounts](docs/account.md) — registration with invoice and shipping address, email sign-in, Google and Facebook
 - [Shopify import](docs/shopify-import.md) — copy the live Shopify catalog into SQLite or Postgres
 - [Stripe](docs/stripe.md) — Checkout, webhook, and test cards
