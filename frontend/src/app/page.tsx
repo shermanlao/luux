@@ -1,6 +1,24 @@
+import type { Metadata } from 'next';
 import Button from '@/components/ui/Button';
 import ProductCard from '@/components/products/ProductCard';
+import JsonLd from '@/components/seo/JsonLd';
+import ShopFacts from '@/components/shop/ShopFacts';
 import { loadFeatured, loadSite } from '@/lib/api';
+import { buildPageMetadata, organizationJsonLd } from '@/lib/seo';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { site } = await loadSite().catch(() => ({
+    site: { seo_title: 'LUUX', seo_description: 'Modern lighting for living spaces.', hero_image: '' } as never,
+  }));
+  return buildPageMetadata({
+    path: '/',
+    title: site.seo_title || 'LUUX',
+    description:
+      site.seo_description ||
+      'Replica modern lighting from a Hong Kong retailer — pendant, wall, table, floor, and ceiling lamps.',
+    image: site.hero_image || '/images/luux-mark.jpg',
+  });
+}
 
 export default async function HomePage() {
   const [{ site }, featured] = await Promise.all([loadSite(), loadFeatured().catch(() => ({ products: [] }))]);
@@ -8,9 +26,14 @@ export default async function HomePage() {
 
   return (
     <div>
+      <JsonLd data={organizationJsonLd(site)} />
       <section className="relative min-h-[70vh] bg-neutral-900 text-[#f4f0f2]">
         {site.hero_image ? (
-          <img src={site.hero_image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <img
+            src={site.hero_image}
+            alt="LUUX modern lighting in a living space"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
         ) : null}
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
         <div className="relative mx-auto flex min-h-[70vh] w-full flex-col justify-end px-6 pb-16 md:px-10">
@@ -56,6 +79,10 @@ export default async function HomePage() {
       {site.sanctuary_heading ? (
         <section className="mx-auto max-w-3xl px-4 py-16 text-center text-2xl leading-snug">{site.sanctuary_heading}</section>
       ) : null}
+
+      <section className="mx-auto max-w-3xl px-6 pb-16 md:px-10">
+        <ShopFacts />
+      </section>
     </div>
   );
 }

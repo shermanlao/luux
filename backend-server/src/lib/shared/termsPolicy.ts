@@ -16,61 +16,11 @@ const HK_INCLUDED_V0 = 'Standard delivery within Hong Kong is included in the po
 const HK_INCLUDED_V1 =
   'Standard delivery within Hong Kong to non-remote addresses is included in the posted product price. Remote Hong Kong areas (including outlying islands and locations such as Tung Chung, Discovery Bay, Chek Lap Kok, Lantau, and Ma Wan) are not included; delivery there is quoted or charged separately';
 
-const VOID_HTML_TAGS = new Set([
-  'area',
-  'base',
-  'br',
-  'col',
-  'embed',
-  'hr',
-  'img',
-  'input',
-  'link',
-  'meta',
-  'param',
-  'source',
-  'track',
-  'wbr',
-]);
-
-const TAG_TOKEN = /<\s*(\/?)\s*([a-zA-Z][\w:-]*)([^>]*?)(\/?)\s*>/g;
+import { closeUnclosedHtmlTags, findRegexMatchStarts, replaceAll } from './htmlPolicyUtils';
+import { removeShopifyFromTermsHtml, replaceLegacyContactEmail } from './policyContentMigration';
 
 function findDuplicateOverviewStarts(html: string): number[] {
-  const pattern = new RegExp(TERMS_OVERVIEW_DUPLICATE_PATTERN.source, TERMS_OVERVIEW_DUPLICATE_PATTERN.flags);
-  const starts: number[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(html)) !== null) {
-    starts.push(match.index);
-    if (match.index === pattern.lastIndex) pattern.lastIndex += 1;
-  }
-  return starts;
-}
-
-function closeUnclosedHtmlTags(html: string): string {
-  const stack: string[] = [];
-  let token: RegExpExecArray | null;
-  const scanner = new RegExp(TAG_TOKEN.source, TAG_TOKEN.flags);
-  while ((token = scanner.exec(html)) !== null) {
-    const isClose = token[1] === '/';
-    const name = token[2].toLowerCase();
-    const selfClose = token[4] === '/' || VOID_HTML_TAGS.has(name);
-    if (selfClose) continue;
-    if (isClose) {
-      if (stack.length > 0 && stack[stack.length - 1] === name) {
-        stack.pop();
-      } else if (stack.includes(name)) {
-        while (stack.length > 0 && stack[stack.length - 1] !== name) stack.pop();
-        if (stack.length > 0) stack.pop();
-      }
-    } else {
-      stack.push(name);
-    }
-  }
-  if (stack.length === 0) return '';
-  return stack
-    .reverse()
-    .map((tag) => `</${tag}>`)
-    .join('');
+  return findRegexMatchStarts(html, TERMS_OVERVIEW_DUPLICATE_PATTERN);
 }
 
 /** Keep the first Shopify-style Terms block when the CMS body was pasted or merged multiple times. */
@@ -82,13 +32,10 @@ export function collapseDuplicateTermsBody(html: string): string {
   return `${truncated}${closeUnclosedHtmlTags(truncated)}`;
 }
 
-function replaceAll(haystack: string, needle: string, replacement: string): string {
-  if (!needle || !haystack.includes(needle)) return haystack;
-  return haystack.split(needle).join(replacement);
-}
-
 export function migrateTermsPolicyHtml(html: string): string {
   let next = collapseDuplicateTermsBody(html);
+  next = removeShopifyFromTermsHtml(next);
+  next = replaceLegacyContactEmail(next);
   next = replaceAll(next, TERMS_PRICES_EXCLUDE, TERMS_PRICES_INCLUDE);
   next = replaceAll(next, TERMS_PRICES_INCLUDE_V1, TERMS_PRICES_INCLUDE);
   if (next.includes(HK_INCLUDED_V0) && !next.includes('non-remote')) {

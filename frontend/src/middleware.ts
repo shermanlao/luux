@@ -5,6 +5,23 @@ import { visitorKind } from '@shared/visitorKind';
 
 const API_ORIGIN = process.env.API_ORIGIN || 'http://127.0.0.1:3333';
 
+function firstHeader(value: string | null): string {
+  return (value || '').split(',')[0].trim();
+}
+
+function wwwToApexRedirect(request: NextRequest): NextResponse | null {
+  const host = firstHeader(request.headers.get('x-forwarded-host')) || firstHeader(request.headers.get('host'));
+  if (!host) return null;
+  const bare = host.replace(/:\d+$/, '');
+  if (!/^www\./i.test(bare)) return null;
+  if (/^(localhost|127\.0\.0\.1)$/i.test(bare.replace(/^www\./i, ''))) return null;
+  const proto = firstHeader(request.headers.get('x-forwarded-proto')) || 'https';
+  const target = new URL(request.url);
+  target.protocol = `${proto}:`;
+  target.host = bare.replace(/^www\./i, '');
+  return NextResponse.redirect(target, 301);
+}
+
 function isShopPage(pathname: string): boolean {
   if (!pathname.startsWith('/') || pathname.startsWith('/admin') || pathname.startsWith('/api') || pathname.startsWith('/_next')) {
     return false;
@@ -63,6 +80,8 @@ async function countAutomatedVisit(request: NextRequest): Promise<void> {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const apex = wwwToApexRedirect(request);
+  if (apex) return apex;
   if (!pathname.startsWith('/admin')) {
     await countAutomatedVisit(request);
     return NextResponse.next();

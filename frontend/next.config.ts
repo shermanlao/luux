@@ -41,6 +41,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
+        { source: '/favicon.ico', destination: '/images/luux-mark.jpg' },
         { source: '/api/:path*', destination: `${apiOrigin}/api/:path*` },
         { source: '/uploads/:path*', destination: `${apiOrigin}/uploads/:path*` },
       ],
@@ -50,11 +51,19 @@ const nextConfig: NextConfig = {
     return [
       { source: '/about', destination: '/pages/about-us', permanent: true },
       { source: '/pages/about', destination: '/pages/about-us', permanent: true },
+      { source: '/contact', destination: '/pages/contact', permanent: true },
+      { source: '/shipping', destination: '/policies/shipping-policy', permanent: true },
       {
         source:
           '/products/italian-designer-table-lamp-led-crystal-eye-of-the-sky-free-shipping-egg-shaped-lamps-living-bedroom-decor-light-night-projector',
         destination:
           '/products/italian-designer-table-lamp-led-crystal-eye-of-the-sky-egg-shaped-lamps-living-bedroom-decor-light-night-projector',
+        permanent: true,
+      },
+      {
+        source:
+          '/products/led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room-bar-cafe-droplight-fxture',
+        destination: '/products/bowling-pin-pendant-lamp',
         permanent: true,
       },
     ];
