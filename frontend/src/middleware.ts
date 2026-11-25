@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ADMIN_SESSION_COOKIE, safeAdminNextPath, verifySessionValue } from '@/lib/admin-session';
 import { redirectSameOrigin } from '@/lib/same-origin-redirect';
 import { visitorKind } from '@shared/visitorKind';
+import {
+  buildWwwToApexLocation,
+  firstForwardedHeader,
+  publicOriginFromEnv,
+  wwwApexHostFromRequest,
+} from '@shared/www-to-apex';
 
 const API_ORIGIN = process.env.API_ORIGIN || 'http://127.0.0.1:3333';
 
@@ -10,16 +16,21 @@ function firstHeader(value: string | null): string {
 }
 
 function wwwToApexRedirect(request: NextRequest): NextResponse | null {
-  const host = firstHeader(request.headers.get('x-forwarded-host')) || firstHeader(request.headers.get('host'));
+  const host =
+    firstForwardedHeader(request.headers.get('x-forwarded-host')) ||
+    firstForwardedHeader(request.headers.get('host'));
   if (!host) return null;
-  const bare = host.replace(/:\d+$/, '');
-  if (!/^www\./i.test(bare)) return null;
-  if (/^(localhost|127\.0\.0\.1)$/i.test(bare.replace(/^www\./i, ''))) return null;
-  const proto = firstHeader(request.headers.get('x-forwarded-proto')) || 'https';
-  const target = new URL(request.url);
-  target.protocol = `${proto}:`;
-  target.host = bare.replace(/^www\./i, '');
-  return NextResponse.redirect(target, 301);
+  const apexHost = wwwApexHostFromRequest(host);
+  if (!apexHost) return null;
+  const location = buildWwwToApexLocation(
+    request.nextUrl.pathname,
+    request.nextUrl.search,
+    apexHost,
+    request.headers.get('x-forwarded-proto'),
+    publicOriginFromEnv(),
+  );
+  if (!location) return null;
+  return NextResponse.redirect(location, 301);
 }
 
 function isShopPage(pathname: string): boolean {
