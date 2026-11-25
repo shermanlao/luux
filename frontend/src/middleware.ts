@@ -29,6 +29,7 @@ function wwwToApexRedirect(request: NextRequest): NextResponse | null {
     request.headers.get('x-forwarded-proto'),
     publicOriginFromEnv(),
   );
+  if (!location) return null;
   return NextResponse.redirect(location, 301);
 }
 
