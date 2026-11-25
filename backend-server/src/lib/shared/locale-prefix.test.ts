@@ -25,4 +25,10 @@ describe('stripLocalePrefix', () => {
     assert.equal(stripLocalePrefix('/collections/all'), null);
     assert.equal(stripLocalePrefix('/'), null);
   });
+
+  it('rejects protocol-relative or absolute-looking remainder paths', () => {
+    assert.equal(stripLocalePrefix('/fr//evil.com'), null);
+    assert.equal(stripLocalePrefix('/ko/https://evil.com'), null);
+    assert.equal(stripLocalePrefix('/en/..%2fadmin'), null);
+  });
 });

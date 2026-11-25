@@ -20,7 +20,7 @@ Helpers live in `frontend/src/lib/seo.ts`:
 
 ## Redirects
 
-`frontend/next.config.ts` permanent redirects include `/about`, `/contact`, `/shipping`, stale product handles, `/products/bowling-pin-pendant-lamp` → the live Bowling Pin handle, and the Shooting Star slug cleanup. `/favicon.ico` rewrites to `/images/luux-mark.jpg`.
+`frontend/next.config.ts` permanent redirects include `/about`, `/contact`, `/shipping`, stale product handles, and the Shooting Star slug cleanup. `/products/bowling-pin-pendant-lamp` **301**s to the live Bowling Pin handle in middleware (typo slug remains a config **308**). `/favicon.ico` rewrites to `/images/luux-mark.jpg`.
 
 ## IndexNow (Bing)
 

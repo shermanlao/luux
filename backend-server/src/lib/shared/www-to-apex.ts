@@ -63,6 +63,51 @@ export function publicOriginFromEnv(
   }
 }
 
+import { stripLocalePrefix } from './locale-prefix';
+
+const BOWLING_PIN_PRETTY_SLUG = '/products/bowling-pin-pendant-lamp';
+const BOWLING_PIN_LIVE_SLUG =
+  '/products/led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room';
+
+/** Safe 301 Location for stripping a locale prefix onto the configured public origin (no request-header host reflection when env is set). */
+export function buildLocaleStripLocation(
+  pathname: string,
+  search: string,
+  requestHost: string,
+  forwardedProto: string | null,
+  envOrigin: string | null,
+  siteOrigin?: string,
+  nextPublicSiteUrl?: string,
+): string | null {
+  const target = stripLocalePrefix(pathname);
+  if (!target) return null;
+  const apex = bareHostname(requestHost).toLowerCase();
+  return buildWwwToApexLocation(target, search, apex, forwardedProto, envOrigin, siteOrigin, nextPublicSiteUrl);
+}
+
+/** Safe 301 for the Bowling Pin pretty product slug (not Next config 308). */
+export function buildBowlingPinSlugLocation(
+  pathname: string,
+  search: string,
+  requestHost: string,
+  forwardedProto: string | null,
+  envOrigin: string | null,
+  siteOrigin?: string,
+  nextPublicSiteUrl?: string,
+): string | null {
+  if (pathname !== BOWLING_PIN_PRETTY_SLUG) return null;
+  const apex = bareHostname(requestHost).toLowerCase();
+  return buildWwwToApexLocation(
+    BOWLING_PIN_LIVE_SLUG,
+    search,
+    apex,
+    forwardedProto,
+    envOrigin,
+    siteOrigin,
+    nextPublicSiteUrl,
+  );
+}
+
 /**
  * Build redirect Location, or null when env and headers cannot safely target a known public host.
  * With env set, Location uses env origin only (headers are not trusted for hostname).

@@ -15,6 +15,10 @@ describe('jsonLdSku', () => {
     );
   });
 
+  it('omits live Balloon semicolon/hash variant ids', () => {
+    assert.equal(jsonLdSku('200000531:29;200000795:366;249:200006305#20cm'), undefined);
+  });
+
   it('omits overlong values', () => {
     assert.equal(jsonLdSku('x'.repeat(51)), undefined);
   });

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  buildBowlingPinSlugLocation,
+  buildLocaleStripLocation,
   buildWwwToApexLocation,
   publicOriginFromEnv,
   safeRedirectProto,
@@ -71,6 +73,38 @@ describe('www to apex redirect location', () => {
     assert.equal(safeRedirectProto('http'), 'http');
     assert.equal(safeRedirectProto('javascript:'), null);
     assert.equal(safeRedirectProto('http://evil.com'), null);
+  });
+
+  it('buildLocaleStripLocation uses env only and rejects hostile forwarded proto without env', () => {
+    const env = publicOriginFromEnv('https://luuxmart.com', undefined);
+    const good = buildLocaleStripLocation('/fr/collections/all', '', 'evil.com', 'https', env);
+    assert.equal(good, 'https://luuxmart.com/collections/all');
+    const hostile = buildLocaleStripLocation('/fr', '', 'evil.com', 'javascript:', null);
+    assert.equal(hostile, null);
+    const evilHost = buildLocaleStripLocation('/ko/cart', '', 'evil.com', 'https', null);
+    assert.equal(evilHost, null);
+    const okHost = buildLocaleStripLocation('/ko/cart', '?x=1', 'luuxmart.com', 'https', null);
+    assert.equal(okHost, 'https://luuxmart.com/cart?x=1');
+  });
+
+  it('buildLocaleStripLocation does not follow protocol-relative remainder', () => {
+    const env = publicOriginFromEnv('https://luuxmart.com', undefined);
+    assert.equal(buildLocaleStripLocation('/fr//evil.com', '', 'luuxmart.com', 'https', env), null);
+  });
+
+  it('buildBowlingPinSlugLocation is a 301-safe https location', () => {
+    const env = publicOriginFromEnv('https://luuxmart.com', undefined);
+    const location = buildBowlingPinSlugLocation(
+      '/products/bowling-pin-pendant-lamp',
+      '',
+      'www.luuxmart.com',
+      'https',
+      env,
+    );
+    assert.equal(
+      location,
+      'https://luuxmart.com/products/led-pendant-lights-chandelier-mirror-lamp-home-kitchen-island-dining-living-room',
+    );
   });
 
   it('detects www host and skips loopback', () => {

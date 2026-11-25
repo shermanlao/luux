@@ -32,8 +32,14 @@ export function collapseDuplicateTermsBody(html: string): string {
   return `${truncated}${closeUnclosedHtmlTags(truncated)}`;
 }
 
-/** After Section 9 (Shopify) is removed, close the gap by shifting 10–24 down to 9–23. */
+/** True when Shopify §9 was removed but numbered sections still start at 10 (one-time gap). */
+export function termsNeedSectionRenumber(html: string): boolean {
+  return /SECTION\s+10\s*-\s*PRIVACY POLICY/i.test(html) && !/SECTION\s+9\s*-\s*PRIVACY POLICY/i.test(html);
+}
+
+/** After Section 9 (Shopify) is removed, close the gap by shifting 10–24 down to 9–23 (idempotent). */
 export function renumberTermsSectionsAfterShopifyRemoval(html: string): string {
+  if (!termsNeedSectionRenumber(html)) return html;
   let next = html;
   for (let section = 10; section <= 24; section += 1) {
     const pattern = new RegExp(`(SECTION\\s+)${section}(\\s*-\\s*)`, 'gi');
