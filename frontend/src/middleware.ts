@@ -3,6 +3,8 @@ import { ADMIN_SESSION_COOKIE, safeAdminNextPath, verifySessionValue } from '@/l
 import { redirectSameOrigin } from '@/lib/same-origin-redirect';
 import { visitorKind } from '@shared/visitorKind';
 import {
+  buildBowlingPinSlugLocation,
+  buildLocaleStripLocation,
   buildWwwToApexLocation,
   firstForwardedHeader,
   publicOriginFromEnv,
@@ -13,6 +15,45 @@ const API_ORIGIN = process.env.API_ORIGIN || 'http://127.0.0.1:3333';
 
 function firstHeader(value: string | null): string {
   return (value || '').split(',')[0].trim();
+}
+
+function requestHost(request: NextRequest): string {
+  return (
+    firstForwardedHeader(request.headers.get('x-forwarded-host')) ||
+    firstForwardedHeader(request.headers.get('host')) ||
+    ''
+  );
+}
+
+function safePublicRedirect(request: NextRequest, location: string | null): NextResponse | null {
+  if (!location || !/^https?:\/\//i.test(location)) return null;
+  return NextResponse.redirect(location, 301);
+}
+
+function localePrefixRedirect(request: NextRequest): NextResponse | null {
+  const host = requestHost(request);
+  if (!host) return null;
+  const location = buildLocaleStripLocation(
+    request.nextUrl.pathname,
+    request.nextUrl.search,
+    host,
+    request.headers.get('x-forwarded-proto'),
+    publicOriginFromEnv(),
+  );
+  return safePublicRedirect(request, location);
+}
+
+function bowlingPinRedirect(request: NextRequest): NextResponse | null {
+  const host = requestHost(request);
+  if (!host) return null;
+  const location = buildBowlingPinSlugLocation(
+    request.nextUrl.pathname,
+    request.nextUrl.search,
+    host,
+    request.headers.get('x-forwarded-proto'),
+    publicOriginFromEnv(),
+  );
+  return safePublicRedirect(request, location);
 }
 
 function wwwToApexRedirect(request: NextRequest): NextResponse | null {
@@ -93,6 +134,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const apex = wwwToApexRedirect(request);
   if (apex) return apex;
+  const locale = localePrefixRedirect(request);
+  if (locale) return locale;
+  const bowlingPin = bowlingPinRedirect(request);
+  if (bowlingPin) return bowlingPin;
   if (!pathname.startsWith('/admin')) {
     await countAutomatedVisit(request);
     return NextResponse.next();

@@ -62,8 +62,15 @@ describe('migrateTermsPolicyHtml shopify cleanup', () => {
     assert.doesNotMatch(migrated, /NOTE TO MERCHANT: This section accurately characterizes Shopify/i);
     assert.ok(!containsShopifyMention(migrated));
     assert.match(migrated, /\[INSERT TRADING NAME\]/);
-    assert.match(migrated, /SECTION 10 - PRIVACY POLICY/);
-    assert.match(migrated, /SECTION 11 - FEEDBACK/);
+    assert.match(migrated, /SECTION 9 - PRIVACY POLICY/);
+    assert.match(migrated, /SECTION 10 - FEEDBACK/);
+    assert.doesNotMatch(migrated, /SECTION 24 - CONTACT/);
+    assert.match(migrated, /SECTION 23 - CONTACT/);
     assert.ok(!containsLegacyEmail(migrated));
+
+    const secondPass = migrateTermsPolicyHtml(migrated);
+    assert.equal(secondPass, migrated);
+    assert.doesNotMatch(secondPass, /SECTION 9 - RELATIONSHIP WITH SHOPIFY/i);
+    assert.match(secondPass, /\[INSERT TRADING NAME\]/);
   });
 });

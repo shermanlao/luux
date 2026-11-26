@@ -6,7 +6,10 @@ import {
   collapseDuplicateTermsBody,
   countDuplicateOverviewStarts,
   migrateTermsPolicyHtml,
+  renumberTermsSectionsAfterShopifyRemoval,
+  termsNeedSectionRenumber,
 } from './termsPolicy';
+import { removeShopifyFromTermsHtml } from './policyContentMigration';
 
 const RTE_OPEN = '<div class="rte">\n        <p><strong><strong>OVERVIEW</strong> <br>Welcome to LUUX!';
 const COPY_TAIL = ' SECTION 4 - PRICES non-remote addresses included. SECTION 24 - CONTACT [INSERT VAT NUMBER] ';
@@ -30,6 +33,35 @@ describe('collapseDuplicateTermsBody', () => {
     const collapsed = collapseDuplicateTermsBody(plain);
     assert.equal(countDuplicateOverviewStarts(collapsed), 1);
     assert.doesNotMatch(collapsed, / B\./);
+  });
+});
+
+describe('renumberTermsSectionsAfterShopifyRemoval', () => {
+  it('shifts SECTION 10–24 down to 9–23', () => {
+    const html = '<p><strong>SECTION 10 - PRIVACY POLICY</strong> … <strong>SECTION 24 - CONTACT</strong></p>';
+    const next = renumberTermsSectionsAfterShopifyRemoval(html);
+    assert.match(next, /SECTION 9 - PRIVACY POLICY/);
+    assert.match(next, /SECTION 23 - CONTACT/);
+    assert.doesNotMatch(next, /SECTION 24 -/);
+    assert.doesNotMatch(next, /SECTION 10 - PRIVACY/);
+  });
+});
+
+describe('migrateTermsPolicyHtml idempotency', () => {
+  it('does not renumber sections twice after the gap is closed', () => {
+    const once = removeShopifyFromTermsHtml('<p><strong>SECTION 10 - PRIVACY POLICY</strong> <strong>SECTION 11 - FEEDBACK</strong> <strong>SECTION 24 - CONTACT</strong> [INSERT VAT]</p>');
+    const first = renumberTermsSectionsAfterShopifyRemoval(once);
+    assert.equal(termsNeedSectionRenumber(once), true);
+    assert.equal(termsNeedSectionRenumber(first), false);
+    const second = renumberTermsSectionsAfterShopifyRemoval(first);
+    assert.equal(second, first);
+    assert.match(first, /SECTION 9 - PRIVACY POLICY/);
+    assert.match(first, /SECTION 10 - FEEDBACK/);
+    assert.match(first, /SECTION 23 - CONTACT/);
+    assert.match(first, /\[INSERT VAT\]/);
+    const migratedTwice = migrateTermsPolicyHtml(migrateTermsPolicyHtml(first));
+    assert.equal(migratedTwice, migrateTermsPolicyHtml(first));
+    assert.doesNotMatch(migratedTwice, /RELATIONSHIP WITH SHOPIFY/i);
   });
 });
 

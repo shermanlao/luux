@@ -4,7 +4,7 @@ import ProductCard from '@/components/products/ProductCard';
 import JsonLd from '@/components/seo/JsonLd';
 import ShopFacts from '@/components/shop/ShopFacts';
 import { loadFeatured, loadSite } from '@/lib/api';
-import { buildPageMetadata, organizationJsonLd } from '@/lib/seo';
+import { buildPageMetadata, homePageDescription, organizationJsonLd } from '@/lib/seo';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { site } = await loadSite().catch(() => ({
@@ -12,10 +12,8 @@ export async function generateMetadata(): Promise<Metadata> {
   }));
   return buildPageMetadata({
     path: '/',
-    title: site.seo_title || 'LUUX',
-    description:
-      site.seo_description ||
-      'Replica modern lighting from a Hong Kong retailer — pendant, wall, table, floor, and ceiling lamps.',
+    title: site.seo_title?.trim() || 'LUUX',
+    description: homePageDescription(site.seo_description || ''),
     image: site.hero_image || '/images/luux-mark.jpg',
   });
 }
