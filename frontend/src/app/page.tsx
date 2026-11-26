@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Button from '@/components/ui/Button';
 import ProductCard from '@/components/products/ProductCard';
+import HomepageUrlHead from '@/components/seo/HomepageUrlHead';
 import JsonLd from '@/components/seo/JsonLd';
 import ShopFacts from '@/components/shop/ShopFacts';
 import { loadFeatured, loadSite } from '@/lib/api';
@@ -10,12 +11,17 @@ export async function generateMetadata(): Promise<Metadata> {
   const { site } = await loadSite().catch(() => ({
     site: { seo_title: 'LUUX', seo_description: 'Modern lighting for living spaces.', hero_image: '' } as never,
   }));
-  return buildPageMetadata({
+  const metadata = buildPageMetadata({
     path: '/',
     title: site.seo_title?.trim() || 'LUUX',
     description: homePageDescription(site.seo_description || ''),
     image: site.hero_image || '/images/luux-mark.jpg',
   });
+  const { alternates: _alternates, ...withoutAlternates } = metadata;
+  const openGraph = metadata.openGraph;
+  if (!openGraph) return withoutAlternates;
+  const { url: _url, ...openGraphWithoutUrl } = openGraph;
+  return { ...withoutAlternates, openGraph: openGraphWithoutUrl };
 }
 
 export default async function HomePage() {
@@ -24,6 +30,7 @@ export default async function HomePage() {
 
   return (
     <div>
+      <HomepageUrlHead />
       <JsonLd data={organizationJsonLd(site)} />
       <section className="relative min-h-[70vh] bg-neutral-900 text-[#f4f0f2]">
         {site.hero_image ? (

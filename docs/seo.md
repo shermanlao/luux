@@ -13,7 +13,7 @@ Canonical host is **https://luuxmart.com** (apex). `www` requests are redirected
 Helpers live in `frontend/src/lib/seo.ts`:
 
 - Per-route `generateMetadata` on home, collections, products, CMS pages, and policies (unique titles/descriptions, canonical URLs, Open Graph, Twitter).
-- Homepage canonical / `og:url` use **https://luuxmart.com/** (trailing slash). Generic CMS homepage descriptions fall back to the replica Hong Kong retailer blurb in `backend-server/src/lib/shared/home-seo.ts` (also applied in `ensureSiteSettings` on boot).
+- Homepage canonical / `og:url` use **https://luuxmart.com/** (trailing slash). `pageCanonicalUrl('/')` already returns that string, but the Metadata API strips the slash on emit — `frontend/src/components/seo/HomepageUrlHead.tsx` renders explicit `<link rel="canonical">` and `<meta property="og:url">` on the homepage (see `app/page.tsx`; homepage `generateMetadata` omits those Metadata fields). Generic CMS homepage descriptions fall back to the replica Hong Kong retailer blurb in `backend-server/src/lib/shared/home-seo.ts` (also applied in `ensureSiteSettings` on boot).
 - `/search` uses `noindex, nofollow` metadata.
 - `Organization` JSON-LD on the homepage; `Product` + `BreadcrumbList` on product pages. Product JSON-LD omits invalid Shopify option strings as `sku` (`jsonld-sku.ts`).
 - Cart, checkout, and account layouts set `robots: noindex`.

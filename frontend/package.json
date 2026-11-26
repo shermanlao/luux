@@ -6,7 +6,8 @@
     "dev": "next dev -H 127.0.0.1 -p 3000",
     "build": "next build",
     "start": "next start -H 127.0.0.1 -p 3000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:homepage-canonical": "node --test src/lib/homepage-canonical-emission.test.mjs"
   },
   "dependencies": {
     "next": "^15.5.29",
